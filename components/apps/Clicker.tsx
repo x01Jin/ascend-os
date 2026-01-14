@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Database, Zap, Cpu, Play, Square, Settings } from 'lucide-react';
+import { Database, Zap, Cpu, Play, Square } from 'lucide-react';
 
 interface ClickerProps {
     dataKB: number;
@@ -323,11 +323,6 @@ const Clicker: React.FC<ClickerProps> = ({
 
                     {/* Auto Miner Module */}
                     <div className="bg-gray-900/80 border border-gray-700 rounded p-2 w-48 backdrop-blur-sm shadow-xl relative overflow-hidden">
-                        {isAutoMining && (
-                            <div className="absolute top-0 right-0 p-1">
-                                <Settings size={12} className="text-cyan-500 animate-spin-slow" style={{ animationDuration: `${autoMinerInterval}ms` }} />
-                            </div>
-                        )}
 
                         <div className="flex justify-between items-center mb-2">
                             <span className="text-[10px] font-mono text-gray-400">AUTO MINER</span>
