@@ -544,9 +544,12 @@ const App: React.FC = () => {
 
   // --- CORE SETTINGS & SAVE HANDLING ---
 
-  const rebootSystem = (targetMode: SaveMode) => {
-    // Save Current State before switching
-    saveGame(gameState, saveMode);
+  const rebootSystem = (targetMode: SaveMode, options?: { skipSave?: boolean }) => {
+    // Optionally skip saving current state (useful for session reset)
+    if (!options?.skipSave) {
+      // Save Current State before switching
+      saveGame(gameState, saveMode);
+    }
 
     // Switch Mode
     setSaveMode(targetMode);
@@ -671,7 +674,7 @@ const App: React.FC = () => {
 
   const handleResetSession = () => {
     resetSave(saveMode);
-    rebootSystem(saveMode);
+    rebootSystem(saveMode, { skipSave: true });
     addNotification("SESSION RESET", "Local state cleared.", NotificationType.WARNING);
   };
 
