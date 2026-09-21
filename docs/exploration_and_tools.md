@@ -4,9 +4,11 @@
 
 The File Explorer is the primary navigation tool.
 
-- **Navigation**: Click folders to enter. Use the Up Arrow or Home button to navigate back.
+- **Navigation**: Single-click selects, double-click opens. Use the ArrowLeft back button or Home button to navigate back.
 - **Address Bar**: Shows the current path (e.g., `root/System_102/Logs_99`).
 - **History**: Maintains a navigation stack for the "Back" button functionality.
+- **Status Bar**: Shows object count and the current directory ID.
+- **Icons**: Folders use Folder icons (green when traced), Packages use an orange bouncing Package icon, Modules use a green pulsing Upload icon, `ascend.exe` uses a purple Cpu icon (green pulsing when traced).
 
 ## Signal Tracing
 
@@ -35,10 +37,11 @@ Orange **Package** files (`.pkg`) can be found hidden in directory structures.
 
 A utility to map complex directory structures automatically.
 
-- **Toggle**: Click the Eye icon in the Explorer toolbar to enable/disable.
+- **Toggle**: Click the Eye icon in the Explorer toolbar to enable/disable. The button shows remaining Auto-Marker count.
 - **Function**:
-  - When enabled, entering any folder instantly consumes 1 Auto-Marker from inventory.
+  - When enabled, navigating into a folder consumes 1 Auto-Marker from inventory.
   - The entered folder is marked with a **Gold Star**.
+  - Opening files does not consume Auto-Markers.
 - **Utility**: This allows players to visually track which folders they have already investigated without needing to manually context-menu mark them.
 
 ## Manual Marking

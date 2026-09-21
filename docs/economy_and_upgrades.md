@@ -11,7 +11,8 @@ The primary currency in Ascend OS is **Data**, measured in Kilobytes (KB), Megab
 The **Data Miner** application is the source of income.
 
 - **Action**: Clicking the "MINE DATA" button.
-- **Base Rate**: 50 KB per click.
+- **Click Value**: `(50 + efficiencyLevel * 5) * activeBoost` KB per click.
+- **Base Rate**: 50 KB per click at level 0 with no boost active.
 - **Visuals**:
   - Floating text indicators (`^Rate`) drift and fade around the button.
   - A real-time data stream visualizer runs at the bottom of the window, reacting to mining speed.
@@ -25,18 +26,19 @@ A background module that automatically mines data over time. It can be monitored
 
 ### Hardware Modules (.mod)
 
-Hardware Modules are rare items found in the File Explorer. They appear as **Purple Processors** and grant permanent upgrades to the Auto-Miner.
+Hardware Modules are rare items found in the File Explorer. They appear as **green upload icons** and grant permanent upgrades to the Auto-Miner.
 
 - **Spawn Rate**: ~11.5% in junk folders.
 
-1. **Power Module (Common Module)**:
-    - Increases the Auto-Miner's output.
-    - Effect: **+1 to +5 KB** per tick.
+1. **Power Module (70%)**:
+   - Increases the Auto-Miner's output.
+   - Effect: **+1 to +5 KB** per tick.
 
-2. **Speed Module (Rare Module)**:
-    - Reduces the time between Auto-Miner ticks.
-    - Effect: **-10ms to -100ms** per module.
-    - Limit: Minimum interval is 0.3s (300ms).
+2. **Speed Module (30%)**:
+   - Reduces the time between Auto-Miner ticks.
+   - Effect: **-10ms to -100ms** per module.
+   - Limit: Minimum interval is 0.3s (300ms).
+   - Max-speed conversion: a Speed Module collected while already at 300ms converts to **+1 to +3 KB/tick** Power instead.
 
 ## Supply Drops (.pkg)
 
@@ -64,10 +66,12 @@ The **System Updates** application allows the player to spend Data to improve ma
 - **Type**: Banked Consumable.
 - **System**: Unlike traditional duration-based boosts, Ascend uses a **Bank System**. You purchase "Time" (seconds) for specific multipliers.
 - **Banks**:
-  - **x2**: Standard boost. Cheapest to maintain.
-  - **x3**: Advanced boost. High cost.
-  - **x4**: Super boost. Very high cost.
-  - **x5**: Rare boost. Typically only found in Supply Drops.
+  - **x2**: Standard boost. Cheapest to maintain. Purchasable in System Updates.
+  - **x3**: Advanced boost. Purchasable in System Updates.
+  - **x4**: Super boost. Purchasable in System Updates.
+  - **x5**: Rare boost. Found in Supply Drops; toggled from the Data Miner when banked time exists.
+- **Cost formula**: `seconds * 5120 * 2^(multiplier - 2)` KB (x2: 5120, x3: 10240, x4: 20480 KB per second).
+- **Purchase bundles**: +5 or +10 seconds per purchase in System Updates.
 - **Mechanics**:
   - Toggle a multiplier ON in the Data Miner.
   - Time is consumed from that specific bank only while the boost is active.
@@ -77,6 +81,7 @@ The **System Updates** application allows the player to spend Data to improve ma
 ### 3. Auto-Marker Bundle
 
 - **Type**: Inventory Consumable.
-- **Effect**: Purchases a bundle of Auto-Markers.
-- **Cost**: 5 MB per unit (Standard Bundle: 5 Units).
+- **Effect**: Purchases Auto-Markers.
+- **Cost**: 5 MB (5120 KB) per unit.
+- **Bundle size**: Adjustable quantity from 1 to 100 units.
 - **Usage**: See [Exploration & Tools](./exploration_and_tools.md).

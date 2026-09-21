@@ -4,10 +4,10 @@ The heart of Ascend is its deterministic procedural generation algorithm located
 
 ## Seeding
 
-The file system is generated using a pseudo-random number generator seeded by the current iteration number:
-`Seed = iteration * 1337`
+The file system is generated using a pseudo-random number generator seeded by the playthrough seed combined with the current iteration number:
+`Seed = runSeed + (iteration * 1337)`
 
-This ensures that if a player reloads the game on Iteration 5, the directory structure for Iteration 5 remains exactly the same.
+`runSeed` is assigned once when a save slot is created (`Date.now()`) and is kept across Ascensions. This ensures that if a player reloads the game on Iteration 5, the directory structure for Iteration 5 remains exactly the same, while different playthroughs get different layouts.
 
 ### Manual Seeding
 
@@ -41,19 +41,19 @@ Occasionally, the generator spawns encrypted **Package** files (`.pkg`) instead 
 - **Spawn Rate**: Approximately 15% chance per slot in junk structures and sibling nodes.
 - **Appearance**: Represented by an orange package icon in the Explorer.
 - **Loot Table**:
-  - **Data Cache (~70%)**: Contains a lump sum of Data (5-10 MB).
-  - **Auto-Mark Bundle (~25%)**: Contains 5-10 Auto-Markers.
-  - **Overclock Chip (~5%)**: Adds time (1-5s) to a random Overclock Bank (x2 - x5).
+  - **Data Cache (60%)**: Contains a lump sum of Data (5-10 MB).
+  - **Auto-Mark Bundle (30%)**: Contains 5-10 Auto-Markers.
+  - **Overclock Chip (10%)**: Adds time (1-5s) to a random Overclock Bank (x2 - x5).
 
 ## Hardware Modules
 
 Rare components for the Auto-Miner can be found as encrypted **Module** files (`.mod`).
 
 - **Spawn Rate**: Approximately 11.5% chance per slot.
-- **Appearance**: Represented by a purple processor icon in the Explorer.
+- **Appearance**: Represented by a green upload icon in the Explorer.
 - **Loot Table**:
-  - **Speed Module (~70%)**: Reduces mining interval.
-  - **Power Module (~30%)**: Increases mining power.
+  - **Power Module (70%)**: Increases mining power (+1 to +5 KB/tick).
+  - **Speed Module (30%)**: Reduces mining interval (-10ms to -100ms).
 
 ## File Types
 

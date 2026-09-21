@@ -42,10 +42,16 @@ The following data persists across Ascensions:
 
 - **Data**: Your collected KB/MB/GB remains available.
 - **Efficiency Level**: Mining power upgrades.
-- **Auto-Mark Inventory**: Unused auto-markers.
+- **Auto-Miner**: Power and interval upgrades.
+- **Auto-Mark Inventory**: Unused auto-markers and toggle state.
 - **Overclock Banks**: Accumulated boost time.
+- **Desktop**: Shortcuts and wallpaper.
+- **Seed**: The `runSeed` is kept; the file system regenerates deterministically for the new iteration.
 - **High Score**: Highest iteration reached.
 
 The following data is **RESET**:
 
-- **File System**: A new seed is generated based on the new iteration.
+- **File System**: Regenerated for the new iteration using the same `runSeed`.
+- **Modifications**: Cleared (`modifiedNodes`).
+- **Consumed Items**: Cleared (`consumedIds`).
+- **Active Boost**: The active multiplier is cleared; banked time remains.

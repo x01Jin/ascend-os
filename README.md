@@ -18,7 +18,7 @@
 
 ## Overview
 
-You are dropped into a procedurally generated operating system. Your goal is to find the w way to ascend hidden deep within the directory structure.
+You are dropped into a procedurally generated operating system. Your goal is to find the way to ascend hidden deep within the directory structure.
 
 ## Documentation
 
@@ -26,8 +26,8 @@ See [Documentation Index](docs/mechanics.md) for detailed logic.
 
 ## Tech Stack
 
-- React 18
+- React 19
 - TypeScript
-- Tailwind CSS
+- Tailwind CSS via CDN
 - Lucide React Icons
 - Vite

@@ -7,7 +7,7 @@ Hidden within the system is the **Core Settings** application, a powerful toolse
 The Core Settings app is not listed in the Start Menu. To access it:
 
 1. Open **System Help**.
-2. Type `core` on your keyboard while the window is focused.
+2. Type `core` on your keyboard while System Help is open.
 3. The "c o r e" text at the bottom will flash, and the Core Settings window will open.
 
 ## Features
@@ -29,7 +29,7 @@ Ascend OS utilizes a Dual Save System to protect your legitimate progress while 
 **Actions:**
 
 - **Switch to Normal Save**: If you are in Dev Mode, this button reboots the system and loads your legitimate save file.
-- **Reset Session**: Wipes the *current* save slot (Normal or Dev) and reboots to a fresh start. This action requires confirmation.
+- **Reset Session**: Wipes the _current_ save slot (Normal or Dev) and reboots to a fresh start. This action requires confirmation.
 - **Factory Reset**: Completely wipes **ALL** local storage data (both Normal and Dev saves), clears preferences, and reloads the application as if it were a fresh install. This action requires confirmation.
 
 ### Data Portability

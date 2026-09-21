@@ -30,3 +30,4 @@ references/
 .playwright-mcp/
 .ignore
 opencode.json
+AGENTS.md
