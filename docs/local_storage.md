@@ -66,4 +66,4 @@ When the player successfully executes `ascend.exe`, the system "Ascends" to the 
 
 ## Wallpaper Limitations
 
-Because `localStorage` typically has a quota (usually around 5MB), the custom wallpaper feature limits image uploads to approximately 3MB. If saving the wallpaper would exceed the browser's storage quota, the game will attempt to save the game state *without* the wallpaper to prevent progress loss.
+Because `localStorage` typically has a quota (usually around 5MB), the custom wallpaper feature limits image uploads to approximately 3MB. If saving the wallpaper would exceed the browser's storage quota, the game will attempt to save the game state _without_ the wallpaper to prevent progress loss.

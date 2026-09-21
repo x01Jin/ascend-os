@@ -2,14 +2,15 @@ export enum FileType {
   FILE = 'FILE',
   FOLDER = 'FOLDER',
   PACKAGE = 'PACKAGE',
-  MODULE = 'MODULE'
+  MODULE = 'MODULE',
 }
 
 export enum FileExtension {
   TXT = 'txt',
   EXE = 'exe',
   PKG = 'pkg',
-  MOD = 'mod'
+  MOD = 'mod',
+  ZIP = 'zip',
 }
 
 export interface PackageContent {
@@ -17,6 +18,8 @@ export interface PackageContent {
   value: number;
   multiplier?: number;
 }
+
+export type MarkKind = 'manual' | 'auto' | 'gate';
 
 export interface FileNode {
   id: string;
@@ -27,8 +30,13 @@ export interface FileNode {
   packageContent?: PackageContent;
   parentId: string | null;
   isMarked?: boolean;
+  markKind?: MarkKind; // gate marks render purple and pulse
   isWinningPath?: boolean; // True if this file is ascend.exe
-  isScanned?: boolean;     // True if revealed by signal tracer
+  isScanned?: boolean; // True if revealed by signal tracer
+  password?: string; // Set for locked puzzle files, checked by TextViewer
+  secretId?: string; // Secret awarded when this file is solved or read
+  loreId?: string; // Lore fragment shown or awarded with this file
+  special?: boolean; // Puzzle txt files, rendered with a subtle glow
 }
 
 export interface DirectoryNode {
@@ -38,8 +46,9 @@ export interface DirectoryNode {
   children: (FileNode | DirectoryNode)[];
   parentId: string | null;
   isMarked?: boolean;
+  markKind?: MarkKind;
   isWinningPath?: boolean; // True if this folder leads to ascend.exe
-  isScanned?: boolean;     // True if revealed by signal tracer
+  isScanned?: boolean; // True if revealed by signal tracer
 }
 
 export type FileSystemNode = FileNode | DirectoryNode;
@@ -52,7 +61,12 @@ export enum AppId {
   ASCENSION = 'ascension',
   UPDATES = 'updates',
   PERSONALIZE = 'personalize',
-  CORE_SETTINGS = 'core_settings'
+  CORE_SETTINGS = 'core_settings',
+  ACHIEVEMENTS = 'achievements',
+  ARCADE = 'arcade',
+  CARTOGRAPHER = 'cartographer',
+  RADAR = 'radar',
+  EGG = 'egg',
 }
 
 export interface DesktopShortcut {
@@ -66,7 +80,17 @@ export interface DesktopShortcut {
 export interface NodeModification {
   name?: string;
   isMarked?: boolean;
+  markKind?: MarkKind;
   isScanned?: boolean;
+}
+
+export interface GameStats {
+  totalMinedKB: number;
+  scans: number;
+  ascensions: number;
+  packagesOpened: number;
+  modulesInstalled: number;
+  logoClicks: number;
 }
 
 export interface GameState {
@@ -75,10 +99,10 @@ export interface GameState {
   dataKB: number; // Currency in Kilobytes (Renamed from storageKB)
   shortcuts: DesktopShortcut[];
   wallpaper?: string; // Base64 string of the background image
-  
+
   // Upgrades & Boosts
   efficiencyLevel: number; // +5KB per level
-  
+
   // New Boost System
   boostBank: Record<number, number>; // Multiplier -> Milliseconds remaining
   activeBoostMultiplier: number | null; // Currently active multiplier
@@ -98,6 +122,20 @@ export interface GameState {
   // Core / Dev Settings
   isDevModeEnabled: boolean;
   isAscendRootEnabled: boolean;
+
+  // Progression: achievements, secrets, lore
+  achievements: Record<string, number>;
+  secretsFound: string[];
+  loreSeen: string[];
+  stats: GameStats;
+  secretsZipSeen: boolean;
+  hasSeenThankYou: boolean;
+
+  // Ascension gate + tools
+  arcadeWins: Record<string, number>; // game id -> iteration last beaten
+  passes: number; // minigame passes held
+  fuelPaidIter: number; // iteration the ascend fuel fee was paid for
+  unlockedTools: string[]; // 'map' | 'radar'
 }
 
 export interface WindowState {
@@ -106,6 +144,7 @@ export interface WindowState {
   title: string;
   zIndex: number;
   isMinimized: boolean;
+  isMaximized?: boolean;
   data?: any; // For passing file content or path
   position?: { x: number; y: number };
 }
@@ -114,7 +153,7 @@ export enum NotificationType {
   INFO = 'INFO',
   SUCCESS = 'SUCCESS',
   WARNING = 'WARNING',
-  ERROR = 'ERROR'
+  ERROR = 'ERROR',
 }
 
 export interface AppNotification {

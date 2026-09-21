@@ -46,7 +46,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, items, onClose }) => {
   return (
     <div
       ref={menuRef}
-      onContextMenu={(e) => {
+      onContextMenu={e => {
         e.preventDefault();
         e.stopPropagation();
       }}
@@ -61,7 +61,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, items, onClose }) => {
         return (
           <button
             key={index}
-            onClick={(e) => {
+            onClick={e => {
               e.stopPropagation();
               if (!item.disabled && item.action) {
                 item.action();
@@ -71,11 +71,13 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, items, onClose }) => {
             disabled={item.disabled}
             className={`
               w-full text-left px-4 py-1.5 text-xs font-medium flex items-center gap-2 select-none
-              ${item.disabled
-                ? 'text-gray-500 cursor-not-allowed'
-                : item.danger
-                  ? 'text-red-400 hover:bg-red-900/30'
-                  : 'text-gray-200 hover:bg-blue-600 hover:text-white'}
+              ${
+                item.disabled
+                  ? 'text-gray-500 cursor-not-allowed'
+                  : item.danger
+                    ? 'text-red-400 hover:bg-red-900/30'
+                    : 'text-gray-200 hover:bg-blue-600 hover:text-white'
+              }
             `}
           >
             {item.label}

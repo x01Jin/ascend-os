@@ -36,11 +36,10 @@ const BootSequence: React.FC<BootSequenceProps> = ({ iteration, onComplete }) =>
       `ALLOCATING VIDEO MEMORY...`,
       `STARTING DESKTOP ENVIRONMENT...`,
       ` `,
-      `SYSTEM READY.`
+      `SYSTEM READY.`,
     ];
 
     let currentIndex = 0;
-    setLines([]); // Reset lines on new iteration
 
     const interval = setInterval(() => {
       if (currentIndex >= bootLines.length) {
@@ -70,7 +69,10 @@ const BootSequence: React.FC<BootSequenceProps> = ({ iteration, onComplete }) =>
       <div className="scanline"></div>
 
       {/* Container for text */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto no-scrollbar flex flex-col justify-end">
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto no-scrollbar flex flex-col justify-end"
+      >
         {lines.map((line, idx) => (
           <div key={idx} className="whitespace-pre-wrap leading-tight">
             {line}

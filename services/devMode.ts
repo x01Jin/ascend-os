@@ -13,10 +13,13 @@ const INFINITE_DATA_AMOUNT = 999_999_999_999; // ~1 Petabyte
 
 export const processDevMode = (state: GameState): GameState => {
   if (ENABLE_DEV_MODE === 1) {
-    console.warn("%c[DEV MODE] Infinite Data Enabled", "background: #f00; color: #fff; padding: 4px; font-weight: bold;");
+    console.warn(
+      '%c[DEV MODE] Infinite Data Enabled',
+      'background: #f00; color: #fff; padding: 4px; font-weight: bold;'
+    );
     return {
       ...state,
-      dataKB: INFINITE_DATA_AMOUNT
+      dataKB: INFINITE_DATA_AMOUNT,
     };
   }
   return state;

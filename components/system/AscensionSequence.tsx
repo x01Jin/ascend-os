@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Cpu, Zap } from 'lucide-react';
+import { Cpu } from 'lucide-react';
 
 interface AscensionSequenceProps {
   currentIteration: number;
@@ -8,19 +8,29 @@ interface AscensionSequenceProps {
 
 const AscensionSequence: React.FC<AscensionSequenceProps> = ({ currentIteration, onComplete }) => {
   const [progress, setProgress] = useState(0);
-  const [log, setLog] = useState("INITIATING HANDSHAKE...");
+  const [log, setLog] = useState('INITIATING HANDSHAKE...');
+  // Background chaos is generated once via a lazy initializer; Math.random
+  // must not run during render.
+  const [particles] = useState(() =>
+    Array.from({ length: 20 }, () => ({
+      top: Math.random() * 100,
+      left: Math.random() * 100,
+      duration: Math.random() * 2 + 0.5,
+      text: Math.random().toString(16).substring(2, 14).toUpperCase(),
+    }))
+  );
 
   useEffect(() => {
     const logs = [
-      "ENCRYPTING LOCAL STATE...",
-      "COMPRESSING ENTROPY...",
-      "ESTABLISHING UPLINK...",
-      "BYPASSING FIREWALL...",
-      "UPLOADING CONSCIOUSNESS...",
-      "PACKETIZING MEMORY...",
-      "PURGING LOCAL CACHE...",
-      "RECOMPILING REALITY...",
-      "ASCENSION COMPLETE."
+      'ENCRYPTING LOCAL STATE...',
+      'COMPRESSING ENTROPY...',
+      'ESTABLISHING UPLINK...',
+      'BYPASSING FIREWALL...',
+      'UPLOADING CONSCIOUSNESS...',
+      'PACKETIZING MEMORY...',
+      'PURGING LOCAL CACHE...',
+      'RECOMPILING REALITY...',
+      'ASCENSION COMPLETE.',
     ];
 
     let step = 0;
@@ -50,17 +60,17 @@ const AscensionSequence: React.FC<AscensionSequenceProps> = ({ currentIteration,
     <div className="w-full h-screen bg-gray-950 text-blue-400 font-mono flex flex-col items-center justify-center relative overflow-hidden z-[9999]">
       {/* Background Chaos */}
       <div className="absolute inset-0 opacity-10 pointer-events-none">
-        {Array.from({ length: 20 }).map((_, i) => (
+        {particles.map((p, i) => (
           <div
             key={i}
             className="absolute text-xs whitespace-nowrap animate-pulse"
             style={{
-              top: `${Math.random() * 100}%`,
-              left: `${Math.random() * 100}%`,
-              animationDuration: `${Math.random() * 2 + 0.5}s`
+              top: `${p.top}%`,
+              left: `${p.left}%`,
+              animationDuration: `${p.duration}s`,
             }}
           >
-            {Math.random().toString(16).substring(2, 14).toUpperCase()}
+            {p.text}
           </div>
         ))}
       </div>
@@ -72,7 +82,9 @@ const AscensionSequence: React.FC<AscensionSequenceProps> = ({ currentIteration,
         </div>
 
         <h1 className="text-3xl font-bold tracking-widest text-white">ASCENDING</h1>
-        <p className="text-sm text-blue-300">ITERATION {currentIteration} &rarr; {currentIteration + 1}</p>
+        <p className="text-sm text-blue-300">
+          ITERATION {currentIteration} &rarr; {currentIteration + 1}
+        </p>
 
         {/* Progress Bar */}
         <div className="w-full bg-gray-900 h-4 rounded border border-gray-700 overflow-hidden relative">
