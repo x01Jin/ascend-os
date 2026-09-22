@@ -146,12 +146,22 @@ const Cartographer: React.FC<CartographerProps> = ({
     const drawn: Edge[] = [];
     const index = buildTeleportIndex(root);
     const exploredSet = new Set(exploredDirIds);
+    const known = new Set<string>(exploredDirIds);
+    for (const id of exploredDirIds) {
+      let cursor = index.parent.get(id) ?? null;
+      while (cursor) {
+        known.add(cursor);
+        cursor = index.parent.get(cursor) ?? null;
+      }
+    }
     let slot = 0;
     const assign = (node: DirectoryNode, depth: number, parentPath: string): number => {
       const path = parentPath ? `${parentPath}/${node.name}` : node.name || '/';
       const folders = foldersOf(node);
-      const shown = revealed.has(depth + 1) ? folders : [];
-      const sealedCount = shown.length === 0 ? folders.length : 0;
+      const shown = revealed.has(depth + 1)
+        ? folders
+        : folders.filter(child => known.has(child.id) || exploredSet.has(node.id));
+      const sealedCount = folders.length - shown.length;
       const y = PAD + depth * ROW_H;
       const tripCost = costFromIndex(index, root.id, explorerDirId, node.id, exploredSet);
       if (shown.length === 0) {
@@ -202,7 +212,12 @@ const Cartographer: React.FC<CartographerProps> = ({
   const [view, setView] = useState({ x: RAIL_W_PX, y: 0, k: 1 });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null);
+  const dragRef = useRef<{
+    sx: number;
+    sy: number;
+    ox: number;
+    oy: number;
+  } | null>(null);
   const suppressClickRef = useRef(false);
 
   useEffect(() => {
@@ -301,7 +316,12 @@ const Cartographer: React.FC<CartographerProps> = ({
         className="flex-1 overflow-hidden relative cursor-grab active:cursor-grabbing touch-none select-none"
         onPointerDown={e => {
           (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
-          dragRef.current = { sx: e.clientX, sy: e.clientY, ox: view.x, oy: view.y };
+          dragRef.current = {
+            sx: e.clientX,
+            sy: e.clientY,
+            ox: view.x,
+            oy: view.y,
+          };
         }}
         onPointerMove={e => {
           const drag = dragRef.current;
@@ -357,7 +377,12 @@ const Cartographer: React.FC<CartographerProps> = ({
                         ? 'border-green-700 bg-green-950/40'
                         : 'border-gray-700 bg-gray-900/90'
                 } ${here && selected ? 'ring-2 ring-cyan-400' : ''}`}
-                style={{ left: x - NODE_W / 2, top: y, width: NODE_W, height: NODE_H }}
+                style={{
+                  left: x - NODE_W / 2,
+                  top: y,
+                  width: NODE_W,
+                  height: NODE_H,
+                }}
               >
                 <div className="p-1.5 font-mono leading-tight">
                   <div

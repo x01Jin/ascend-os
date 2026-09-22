@@ -378,8 +378,8 @@ export const generateFileSystem = (
 
   const layerPad = String(Math.max(1, iteration)).padStart(2, '0');
   const vaultLines = [
-    `[HOLD VLT-07] Nothing in this node is load-bearing. I checked twice. M.I. layer ${layerPad}.`,
-    `[HOLD VLT-12] nothing load-bearing. checked twice. checked again because I didn't believe it.`,
+    `[HOLD VLT-07] Nothing in this node is [REDACTED]. I checked twice. M.I. layer ${layerPad}.`,
+    `[HOLD VLT-12] nothing [REDACTED]. checked twice. checked again because I didn't believe it.`,
   ];
   if (iteration === 3) {
     vaultLines.unshift(

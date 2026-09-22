@@ -18,7 +18,7 @@ Upgrades and inventory: `efficiencyLevel`, `autoMinerData`, `autoMinerInterval`,
 
 File system: `consumedIds` (opened packages and modules, blocks reload farming), `modifiedNodes` (renames, marks, traces).
 
-Progression: `achievements`, `secretsFound`, `loreSeen`, `secretsZipSeen`, `hasSeenThankYou`, `stats`, `arcadeWins`, `passes`, `fuelPaidIter`, `unlockedTools`, `revealedDepths` (map fog-of-war), `exploredDirIds` (visited folders, discounts map reveals), `triangulated` (radar tiers bought per file, cleared each ascension), `locatedMinigames` (gate minigame locations bought per iteration, cleared each ascension).
+Progression: `achievements`, `secretsFound`, `loreSeen`, `secretsZipSeen`, `hasSeenThankYou`, `stats`, `arcadeWins`, `passes`, `fuelPaidIter`, `unlockedTools`, `revealedDepths` (map fog-of-war), `exploredDirIds` (visited folders, discounts map reveals), `triangulated` (radar tiers bought per file, cleared each ascension), `locatedMinigames` (gate minigame locations bought per iteration, cleared each ascension), `locatedTrail` (gate trail locations bought, keyed by layer), `unscrambledTrail` (trail word puzzles solved, keyed by layer).
 
 Flags: `isDevModeEnabled`, `isAscendRootEnabled`. Normal-mode loads force both off.
 

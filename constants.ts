@@ -55,9 +55,27 @@ export const INITIAL_GAME_STATE: GameState = {
   highScore: 1,
   dataKB: 0,
   shortcuts: [
-    { id: 'sc_explorer', appId: AppId.EXPLORER, label: 'File Explorer', gridX: 0, gridY: 0 },
-    { id: 'sc_miner', appId: AppId.CLICKER, label: 'Data Miner', gridX: 0, gridY: 1 },
-    { id: 'sc_updates', appId: AppId.UPDATES, label: 'System Updates', gridX: 0, gridY: 2 },
+    {
+      id: 'sc_explorer',
+      appId: AppId.EXPLORER,
+      label: 'File Explorer',
+      gridX: 0,
+      gridY: 0,
+    },
+    {
+      id: 'sc_miner',
+      appId: AppId.CLICKER,
+      label: 'Data Miner',
+      gridX: 0,
+      gridY: 1,
+    },
+    {
+      id: 'sc_updates',
+      appId: AppId.UPDATES,
+      label: 'System Updates',
+      gridX: 0,
+      gridY: 2,
+    },
   ],
   wallpaper: undefined,
   efficiencyLevel: 0,
@@ -93,5 +111,7 @@ export const INITIAL_GAME_STATE: GameState = {
   exploredDirIds: [],
   triangulated: {},
   locatedMinigames: [],
+  locatedTrail: [],
+  unscrambledTrail: [],
   unlockedTools: [],
 };

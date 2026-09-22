@@ -1,8 +1,13 @@
 import React from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { DirectoryNode, FileExtension, FileNode, FileType, GameState } from '../../types';
-import { MINIGAMES, fuelFeeKB, getGateStatus } from '../../services/gate';
+import { MINIGAMES, fuelFeeKB, gatePartFor, getGateStatus } from '../../services/gate';
 import { locateCostFor } from '../../constants';
+import {
+  archivistFileIdFor,
+  trailLocateCostFor,
+  trailLocateFileIdFor,
+} from '../../services/trailScramble';
 import { findNodeById } from '../../services/filesystem';
 
 interface AscensionGateProps {
@@ -10,7 +15,9 @@ interface AscensionGateProps {
   root: DirectoryNode | null;
   dataKB: number;
   locatedMinigames: string[];
+  locatedTrail: number[];
   onLocate: (gameId: string) => void;
+  onLocateTrail: () => void;
   onShowLocation: (file: FileNode) => void;
   onPayFuel: () => void;
   onConfirm: () => void;
@@ -22,7 +29,9 @@ const AscensionGate: React.FC<AscensionGateProps> = ({
   root,
   dataKB,
   locatedMinigames,
+  locatedTrail,
   onLocate,
+  onLocateTrail,
   onShowLocation,
   onPayFuel,
   onConfirm,
@@ -45,6 +54,31 @@ const AscensionGate: React.FC<AscensionGateProps> = ({
     if (dataKB < locateCost) return;
     if (!exeDirId(gameId)) return;
     onLocate(gameId);
+  };
+
+  const part = gatePartFor(iteration);
+  const trailFileId = archivistFileIdFor(iteration);
+  const trailDirId = root ? (findNodeById(root, trailFileId)?.parentId ?? null) : null;
+  const trailCost = trailLocateCostFor(iteration);
+  const trailLocated = locatedTrail.includes(iteration);
+
+  const handleLocateTrail = () => {
+    if (dataKB < trailCost) return;
+    if (!trailDirId) return;
+    onLocateTrail();
+  };
+
+  const handleShowTrail = () => {
+    if (!trailDirId) return;
+    onShowLocation({
+      id: trailLocateFileIdFor(iteration),
+      name: `archivist_${part}_location`,
+      type: FileType.FILE,
+      extension: FileExtension.TXT,
+      content: `// ARCHIVIST TRAIL TERMINAL - LAYER ${iteration}\n\nThe host directory stays sealed until the margin words are set right.\nUnscramble all three words below to reveal the trail file location.`,
+      parentId: null,
+      isWinningPath: false,
+    });
   };
 
   const handleShow = (gameId: string) => {
@@ -102,6 +136,21 @@ const AscensionGate: React.FC<AscensionGateProps> = ({
                   {locatedMinigames.includes(gameId)
                     ? 'SHOW FILE'
                     : `LOCATE ${(locateCost / 1024).toFixed(0)} MB`}
+                </button>
+              )}
+              {item.id === 'trail' && !item.done && (
+                <button
+                  onClick={() => (trailLocated ? handleShowTrail() : handleLocateTrail())}
+                  disabled={!trailLocated && (dataKB < trailCost || !root || !trailDirId)}
+                  className={`px-3 py-1 rounded text-xs font-bold shrink-0 ${
+                    trailLocated
+                      ? 'border border-cyan-700 text-cyan-300 hover:bg-cyan-950'
+                      : dataKB >= trailCost && root && trailDirId
+                        ? 'bg-purple-600 hover:bg-purple-500 text-white'
+                        : 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                  }`}
+                >
+                  {trailLocated ? 'SHOW FILE' : `LOCATE ${(trailCost / 1024).toFixed(0)} MB`}
                 </button>
               )}
               {item.id === 'fuel' && !fuelPaid && (

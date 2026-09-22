@@ -132,6 +132,12 @@ export const loadGame = (mode: SaveMode): GameState | null => {
       if (!parsed.locatedMinigames) {
         parsed.locatedMinigames = [];
       }
+      if (!parsed.locatedTrail) {
+        parsed.locatedTrail = [];
+      }
+      if (!parsed.unscrambledTrail) {
+        parsed.unscrambledTrail = [];
+      }
 
       if (mode === 'NORMAL') {
         parsed.isDevModeEnabled = false;

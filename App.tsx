@@ -44,6 +44,14 @@ import Taskbar from './components/Taskbar';
 import WindowFrame from './components/WindowFrame';
 import Explorer from './components/apps/Explorer';
 import TextViewer from './components/apps/TextViewer';
+import {
+  archivistFileIdFor,
+  isTrailLocateFileId,
+  scrambledTrailWords,
+  trailIterationOf,
+  trailLocateCostFor,
+  trailSetFor,
+} from './services/trailScramble';
 import Clicker from './components/apps/Clicker';
 import Updates from './components/apps/Updates';
 import BootSequence from './components/system/BootSequence';
@@ -815,6 +823,30 @@ const App: React.FC = () => {
           }
     );
   };
+  const handleLocateTrail = () => {
+    if (!fileSystem) return;
+    const iteration = gameState.currentIteration;
+    if (gameState.locatedTrail.includes(iteration)) return;
+    if (!findNodeById(fileSystem, archivistFileIdFor(iteration))) return;
+    const cost = trailLocateCostFor(iteration);
+    if (gameState.dataKB < cost) return;
+    setGameState(prev =>
+      prev.locatedTrail.includes(iteration) || prev.dataKB < cost
+        ? prev
+        : {
+            ...prev,
+            dataKB: prev.dataKB - cost,
+            locatedTrail: [...prev.locatedTrail, iteration],
+          }
+    );
+  };
+  const handleTrailSolved = (iteration: number) => {
+    setGameState(prev =>
+      prev.unscrambledTrail.includes(iteration)
+        ? prev
+        : { ...prev, unscrambledTrail: [...prev.unscrambledTrail, iteration] }
+    );
+  };
   const handleRevealLevel = (level: number) => {
     if (!fileSystem || gameState.revealedDepths.includes(level)) return;
     const cost = revealCostFor(fileSystem, level, gameState.exploredDirIds);
@@ -1374,6 +1406,24 @@ const App: React.FC = () => {
               file={win.data as FileNode}
               onUnlocked={handleUnlockedFile}
               onRead={handleReadFile}
+              trail={(() => {
+                const file = win.data as FileNode;
+                if (!file || !isTrailLocateFileId(file.id)) return undefined;
+                const iter = trailIterationOf(file.id);
+                if (iter <= 0 || iter !== gameState.currentIteration) return undefined;
+                const dirNode = fileSystem
+                  ? findNodeById(fileSystem, archivistFileIdFor(iter))
+                  : null;
+                const dirId = dirNode?.parentId ?? null;
+                if (!dirId) return undefined;
+                return {
+                  scrambled: scrambledTrailWords(gameState.runSeed, iter),
+                  answers: trailSetFor(gameState.runSeed, iter),
+                  solved: gameState.unscrambledTrail.includes(iter),
+                  reveal: `> DIRECTORY: ${dirId}\n> Teleport an explorer straight there.`,
+                  onSolve: () => handleTrailSolved(iter),
+                };
+              })()}
             />
           )}
           {win.appId === AppId.EGG && (
@@ -1467,7 +1517,9 @@ const App: React.FC = () => {
               root={fileSystem}
               dataKB={gameState.dataKB}
               locatedMinigames={gameState.locatedMinigames}
+              locatedTrail={gameState.locatedTrail}
               onLocate={handleLocateMinigame}
+              onLocateTrail={handleLocateTrail}
               onShowLocation={file => openWindow(AppId.TEXT_VIEWER, file)}
               onPayFuel={handlePayFuel}
               onConfirm={handleAscendStart}

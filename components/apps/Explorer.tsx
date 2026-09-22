@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Folder,
   FileText,
+  FileArchive,
   Cpu,
   ArrowLeft,
   Home,
@@ -431,6 +432,15 @@ const Explorer: React.FC<ExplorerProps> = ({
                       <Cpu
                         size={36}
                         className={isScanned ? 'text-green-400 animate-pulse' : 'text-purple-500'}
+                      />
+                    ) : child.type === FileType.FILE && child.extension === FileExtension.ZIP ? (
+                      <FileArchive
+                        size={36}
+                        className={
+                          (child as FileNode).special
+                            ? 'text-amber-300 animate-pulse drop-shadow-[0_0_6px_rgba(251,191,36,0.55)]'
+                            : 'text-gray-500'
+                        }
                       />
                     ) : (
                       <FileText

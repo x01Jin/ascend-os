@@ -142,6 +142,8 @@ export interface GameState {
   exploredDirIds: string[];
   triangulated: Record<string, 1 | 2 | 3>;
   locatedMinigames: string[];
+  locatedTrail: number[];
+  unscrambledTrail: number[];
   unlockedTools: string[];
 }
 
