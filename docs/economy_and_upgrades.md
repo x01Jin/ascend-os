@@ -23,10 +23,10 @@ Green upload icons in the Explorer. Spawn in about 5% of junk slots. Each instal
 
 ## Supply Drops (.pkg)
 
-Orange package icons. Spawn in about 7% of junk slots. Opening one consumes it and pays immediately:
+Orange package icons. Spawn in about 13% of junk slots. Opening one consumes it and pays immediately:
 
-- **Data Cache (60%)**: 5-10 MB.
-- **Auto-Mark Bundle (30%)**: 2-4 Auto-Markers.
+- **Data Cache (60%)**: 8-14 MB.
+- **Auto-Mark Bundle (30%)**: 3-6 Auto-Markers.
 - **Overclock Chip (10%)**: 1-5 seconds into a random bank (x2-x5).
 
 ## System Updates

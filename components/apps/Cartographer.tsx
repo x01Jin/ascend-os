@@ -1,58 +1,343 @@
-import React from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Folder } from 'lucide-react';
 import { DirectoryNode, FileType } from '../../types';
 
 interface CartographerProps {
   root: DirectoryNode;
-  onTeleport: (dirId: string) => void;
+  revealedDepths: number[];
+  exploredDirIds: string[];
+  autoMarkCount: number;
+  onTeleport: (id: string) => void;
+  onRevealLevel: (level: number) => void;
 }
 
-const FolderRow: React.FC<{
+interface PlacedNode {
   node: DirectoryNode;
   depth: number;
-  onTeleport: (id: string) => void;
-}> = ({ node, depth, onTeleport }) => {
-  const folders = node.children.filter(c => c.type === FileType.FOLDER) as DirectoryNode[];
-  const mark = node.isMarked
-    ? node.markKind === 'gate'
-      ? 'text-purple-400'
-      : 'text-yellow-400'
-    : '';
+  x: number;
+  y: number;
+  path: string;
+  hiddenCount: number;
+}
+
+interface Edge {
+  key: string;
+  d: string;
+}
+
+const NODE_W = 132;
+const NODE_H = 64;
+const PITCH_X = 168;
+const ROW_H = 170;
+const PAD = 80;
+const MIN_ZOOM = 0.4;
+const MAX_ZOOM = 4;
+
+export const revealCostFor = (root: DirectoryNode, level: number, explored: string[]): number => {
+  if (level <= 0) return 0;
+  const counts: number[] = [];
+  const known = new Set<string>();
+  const exploredSet = new Set(explored);
+  const walk = (node: DirectoryNode, depth: number) => {
+    counts[depth] = (counts[depth] ?? 0) + 1;
+    if (depth < level && (exploredSet.has(node.id) || node.isScanned || node.isMarked)) {
+      known.add(node.id);
+    }
+    for (const child of node.children) {
+      if (child.type === FileType.FOLDER) walk(child as DirectoryNode, depth + 1);
+    }
+  };
+  walk(root, 0);
+  return Math.max(1, Math.ceil((counts[level - 1] ?? 0) * 1.1) - known.size);
+};
+
+const foldersOf = (node: DirectoryNode): DirectoryNode[] =>
+  node.children.filter(c => c.type === FileType.FOLDER) as DirectoryNode[];
+
+const countFolders = (nodes: DirectoryNode[]): number => {
+  let count = 0;
+  for (const node of nodes) {
+    count += 1 + countFolders(foldersOf(node));
+  }
+  return count;
+};
+
+const Cartographer: React.FC<CartographerProps> = ({
+  root,
+  revealedDepths,
+  exploredDirIds,
+  autoMarkCount,
+  onTeleport,
+  onRevealLevel,
+}) => {
+  const revealed = useMemo(() => new Set(revealedDepths), [revealedDepths]);
+
+  const { nodes, edges, worldW, worldH, maxDepth } = useMemo(() => {
+    const placed: PlacedNode[] = [];
+    const drawn: Edge[] = [];
+    let maxDepthSeen = 0;
+    let slot = 0;
+    const assign = (node: DirectoryNode, depth: number, parentPath: string): number => {
+      if (depth > maxDepthSeen) maxDepthSeen = depth;
+      const path = parentPath ? `${parentPath}/${node.name}` : node.name || '/';
+      const folders = foldersOf(node);
+      const shown = revealed.has(depth + 1) ? folders : [];
+      const hiddenCount = shown.length === 0 ? countFolders(folders) : 0;
+      const y = PAD + depth * ROW_H;
+      if (shown.length === 0) {
+        const x = PAD + slot * PITCH_X;
+        slot += 1;
+        placed.push({ node, depth, x, y, path, hiddenCount });
+        return x;
+      }
+      const childX = shown.map(child => assign(child, depth + 1, path));
+      const x = (childX[0]! + childX[childX.length - 1]!) / 2;
+      placed.push({ node, depth, x, y, path, hiddenCount });
+      const childY = PAD + (depth + 1) * ROW_H;
+      const midY = (y + NODE_H + childY) / 2;
+      for (let i = 0; i < shown.length; i++) {
+        const cx = childX[i]!;
+        drawn.push({
+          key: `${node.id}>${shown[i]!.id}`,
+          d: `M ${x} ${y + NODE_H} L ${x} ${midY} L ${cx} ${midY} L ${cx} ${childY}`,
+        });
+      }
+      return x;
+    };
+    assign(root, 0, '');
+    return {
+      nodes: placed,
+      edges: drawn,
+      worldW: Math.max(slot * PITCH_X + PAD * 2, 800),
+      worldH: (maxDepthSeen + 1) * ROW_H + PAD * 2,
+      maxDepth: maxDepthSeen,
+    };
+  }, [root, revealed]);
+
+  const fullDepthCounts = useMemo(() => {
+    let deepest = 0;
+    const walk = (node: DirectoryNode, depth: number) => {
+      if (depth > deepest) deepest = depth;
+      for (const child of node.children) {
+        if (child.type === FileType.FOLDER) walk(child as DirectoryNode, depth + 1);
+      }
+    };
+    walk(root, 0);
+    return deepest;
+  }, [root]);
+
+  const deepestLevel = Math.max(maxDepth, fullDepthCounts);
+
+  const costs = useMemo(() => {
+    const next = new Map<number, number>();
+    for (let level = 0; level <= deepestLevel; level++) {
+      if (!revealed.has(level)) next.set(level, revealCostFor(root, level, exploredDirIds));
+    }
+    return next;
+  }, [root, deepestLevel, revealed, exploredDirIds]);
+
+  const maxRevealed = useMemo(
+    () => revealedDepths.reduce((max, d) => Math.max(max, d), 0),
+    [revealedDepths]
+  );
+
+  const [view, setView] = useState({ x: 0, y: 0, k: 1 });
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null);
+  const suppressClickRef = useRef(false);
+
+  useEffect(() => {
+    const el = viewportRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const bounds = el.getBoundingClientRect();
+      const cx = e.clientX - bounds.left;
+      const cy = e.clientY - bounds.top;
+      const factor = Math.pow(1.0015, -e.deltaY);
+      setView(v => {
+        const k = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, v.k * factor));
+        const scale = k / v.k;
+        return { k, x: cx - (cx - v.x) * scale, y: cy - (cy - v.y) * scale };
+      });
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
+
+  const zoomBy = (factor: number) => {
+    const el = viewportRef.current;
+    const cx = (el?.clientWidth ?? 0) / 2;
+    const cy = (el?.clientHeight ?? 0) / 2;
+    setView(v => {
+      const k = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, v.k * factor));
+      const scale = k / v.k;
+      return { k, x: cx - (cx - v.x) * scale, y: cy - (cy - v.y) * scale };
+    });
+  };
+
+  const guarded = (fn: () => void) => () => {
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false;
+      return;
+    }
+    fn();
+  };
+
   return (
-    <div>
-      <div
-        className="flex items-center gap-2 py-0.5 hover:bg-white/5 rounded px-1"
-        style={{ paddingLeft: `${depth * 14 + 4}px` }}
-      >
-        <span
-          className={`font-mono text-xs ${node.isScanned ? 'text-green-400' : 'text-gray-300'}`}
-        >
-          {mark ? '★ ' : ''}
-          {node.name || '/'}
+    <div className="h-full flex flex-col bg-gray-950 text-gray-300 font-mono text-sm">
+      <div className="p-2 border-b border-gray-800 text-xs text-gray-500 flex items-center gap-2 flex-wrap">
+        <span className="shrink-0">folder tree by depth. drag to pan, scroll to zoom.</span>
+        <span className="shrink-0 text-cyan-300">◈ {autoMarkCount}</span>
+        <span className="flex items-center gap-1 ml-auto shrink-0">
+          <button
+            onClick={() => zoomBy(1.25)}
+            className="border border-gray-700 rounded px-1.5 hover:bg-gray-800 text-gray-300"
+          >
+            +
+          </button>
+          <button
+            onClick={() => zoomBy(0.8)}
+            className="border border-gray-700 rounded px-1.5 hover:bg-gray-800 text-gray-300"
+          >
+            −
+          </button>
+          <button
+            onClick={() => setView({ x: 0, y: 0, k: 1 })}
+            className="border border-gray-700 rounded px-1.5 hover:bg-gray-800 text-gray-300"
+          >
+            reset
+          </button>
         </span>
-        {node.isScanned && <span className="text-[10px] text-green-600 font-mono">scanned</span>}
-        <button
-          onClick={() => onTeleport(node.id)}
-          className="ml-auto text-[10px] font-mono text-purple-400 hover:text-purple-200 border border-purple-800 rounded px-1"
-        >
-          TELEPORT
-        </button>
       </div>
-      {folders.map(f => (
-        <FolderRow key={f.id} node={f} depth={depth + 1} onTeleport={onTeleport} />
-      ))}
+      <div className="px-2 py-1 border-b border-gray-800 flex items-center gap-1 overflow-x-auto text-[11px]">
+        {Array.from({ length: deepestLevel + 1 }, (_, level) => {
+          if (revealed.has(level)) {
+            return (
+              <span key={level} className="shrink-0 text-green-600">
+                L{level} ✓
+              </span>
+            );
+          }
+          const cost = costs.get(level) ?? 1;
+          const next = level === maxRevealed + 1;
+          const afford = autoMarkCount >= cost;
+          return next ? (
+            <button
+              key={level}
+              onClick={() => onRevealLevel(level)}
+              disabled={!afford}
+              title={`Reveal depth ${level} for ${cost} automarkers`}
+              className={`shrink-0 border rounded px-1.5 ${
+                afford
+                  ? 'border-purple-700 text-purple-300 hover:bg-purple-950'
+                  : 'border-gray-800 text-gray-600 cursor-not-allowed'
+              }`}
+            >
+              L{level} reveal ◈{cost}
+            </button>
+          ) : (
+            <span key={level} className="shrink-0 text-gray-700">
+              L{level} 🔒
+            </span>
+          );
+        })}
+      </div>
+      <div
+        ref={viewportRef}
+        className="flex-1 overflow-hidden relative cursor-grab active:cursor-grabbing touch-none select-none"
+        onPointerDown={e => {
+          (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+          dragRef.current = { sx: e.clientX, sy: e.clientY, ox: view.x, oy: view.y };
+        }}
+        onPointerMove={e => {
+          const drag = dragRef.current;
+          if (!drag) return;
+          const dx = e.clientX - drag.sx;
+          const dy = e.clientY - drag.sy;
+          if (Math.abs(dx) + Math.abs(dy) > 4) suppressClickRef.current = true;
+          setView(v => ({ ...v, x: drag.ox + dx, y: drag.oy + dy }));
+        }}
+        onPointerUp={() => {
+          dragRef.current = null;
+        }}
+        onPointerCancel={() => {
+          dragRef.current = null;
+        }}
+      >
+        <div
+          className="absolute origin-top-left"
+          style={{
+            width: worldW,
+            height: worldH,
+            transform: `translate(${view.x}px, ${view.y}px) scale(${view.k})`,
+          }}
+        >
+          <svg
+            className="absolute left-0 top-0 overflow-visible"
+            width={worldW}
+            height={worldH}
+            fill="none"
+          >
+            {edges.map(edge => (
+              <path key={edge.key} d={edge.d} stroke="#374151" strokeWidth={3} />
+            ))}
+          </svg>
+          {Array.from({ length: maxDepth + 1 }, (_, depth) => (
+            <div
+              key={`gutter-${depth}`}
+              className="absolute font-mono text-[22px] text-gray-600"
+              style={{ left: 8, top: PAD + depth * ROW_H + 12 }}
+            >
+              L{depth}
+            </div>
+          ))}
+          {nodes.map(placed => {
+            const { node, x, y, path, hiddenCount } = placed;
+            const selected = selectedId === node.id;
+            const mark =
+              node.markKind === 'gate' ? 'text-purple-400' : node.isMarked ? 'text-yellow-400' : '';
+            return (
+              <div
+                key={node.id}
+                title={`${node.name || '/'}\n${node.id}\n${path}`}
+                onClick={guarded(() => setSelectedId(node.id))}
+                onDoubleClick={guarded(() => onTeleport(node.id))}
+                className={`absolute rounded border overflow-hidden cursor-pointer hover:brightness-150 ${
+                  selected
+                    ? 'border-cyan-400 bg-cyan-950/40'
+                    : node.isScanned
+                      ? 'border-green-700 bg-green-950/40'
+                      : 'border-gray-700 bg-gray-900/90'
+                }`}
+                style={{ left: x - NODE_W / 2, top: y, width: NODE_W, height: NODE_H }}
+              >
+                <div className="p-1.5 font-mono leading-tight">
+                  <div
+                    className={`text-[15px] truncate flex items-center gap-1 ${
+                      node.isScanned ? 'text-green-300' : 'text-gray-200'
+                    }`}
+                  >
+                    <Folder size={15} className="shrink-0 text-gray-500" />
+                    <span className="truncate">{node.name || '/'}</span>
+                    {mark ? <span className={`${mark} shrink-0`}>★</span> : ''}
+                  </div>
+                  {node.isScanned ? (
+                    <div className="text-[11px] text-green-600 font-mono">scanned</div>
+                  ) : hiddenCount > 0 ? (
+                    <div className="text-[11px] text-gray-500 font-mono">
+                      ? {hiddenCount} hidden
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 };
-
-const Cartographer: React.FC<CartographerProps> = ({ root, onTeleport }) => (
-  <div className="h-full flex flex-col bg-gray-950 text-gray-300 font-mono text-sm">
-    <div className="p-2 border-b border-gray-800 text-xs text-gray-500">
-      full folder chart. teleport jumps an explorer straight there.
-    </div>
-    <div className="flex-1 overflow-y-auto p-2">
-      <FolderRow node={root} depth={0} onTeleport={onTeleport} />
-    </div>
-  </div>
-);
 
 export default Cartographer;

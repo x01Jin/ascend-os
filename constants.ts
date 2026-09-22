@@ -19,6 +19,8 @@ export const RADAR_UNLOCK_COST = 250 * 1024;
 
 export const AUTOMINER_DEFAULT_INTERVAL = 3000;
 export const AUTOMINER_MIN_INTERVAL = 300;
+export const OFFLINE_YIELD_RATE = 0.5;
+export const OFFLINE_YIELD_CAP_MS = 8 * 3600 * 1000;
 
 export const DESKTOP_GRID = {
   WIDTH: 96,
@@ -52,6 +54,7 @@ export const INITIAL_GAME_STATE: GameState = {
   isAutoMarkEnabled: false,
   autoMinerData: 0,
   autoMinerInterval: AUTOMINER_DEFAULT_INTERVAL,
+  lastTickAt: 0,
   runSeed: 0,
   consumedIds: [],
   modifiedNodes: {},
@@ -74,5 +77,7 @@ export const INITIAL_GAME_STATE: GameState = {
   passes: 0,
   fuelPaidIter: 0,
   ghostSolvedIter: 0,
+  revealedDepths: [0, 1],
+  exploredDirIds: [],
   unlockedTools: [],
 };

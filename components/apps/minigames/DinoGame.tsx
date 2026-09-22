@@ -10,7 +10,7 @@ const DinoGame: React.FC<{ onWin: () => void }> = ({ onWin }) => {
   useEffect(() => {
     onWinRef.current = onWin;
   }, [onWin]);
-  const [status, setStatus] = useState('space to jump. survive 20s.');
+  const [status, setStatus] = useState('space/w/up to jump. survive 20s.');
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -27,7 +27,7 @@ const DinoGame: React.FC<{ onWin: () => void }> = ({ onWin }) => {
     let dead = false;
 
     const jump = (e: KeyboardEvent) => {
-      if (e.code === 'Space') {
+      if (e.code === 'Space' || e.code === 'KeyW' || e.code === 'ArrowUp') {
         e.preventDefault();
         if (dead) {
           dead = false;
@@ -35,7 +35,7 @@ const DinoGame: React.FC<{ onWin: () => void }> = ({ onWin }) => {
           time = 0;
           y = H - 30;
           vy = 0;
-          setStatus('space to jump. survive 20s.');
+          setStatus('space/w/up to jump. survive 20s.');
         } else if (y >= H - 30) vy = -9;
       }
     };
@@ -53,7 +53,7 @@ const DinoGame: React.FC<{ onWin: () => void }> = ({ onWin }) => {
         const hit = obstacles.some(o => o.x < 40 && o.x > 10 && y > H - 55);
         if (hit) {
           dead = true;
-          setStatus('wrecked. space to retry.');
+          setStatus('wrecked. space/w/up to retry.');
         }
         if (time >= 20 && !wonRef.current) {
           wonRef.current = true;

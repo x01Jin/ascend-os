@@ -2,7 +2,7 @@ import { DirectoryNode, FileSystemNode, FileType, NodeModification } from '../ty
 import { generateFileSystem } from './generator';
 import { loadGame, SaveMode } from './storage';
 import { processDevMode } from './devMode';
-import { INITIAL_GAME_STATE } from '../constants';
+import { INITIAL_GAME_STATE, OFFLINE_YIELD_CAP_MS, OFFLINE_YIELD_RATE } from '../constants';
 
 export const findNodeById = (node: DirectoryNode, id: string): FileSystemNode | null => {
   if (node.id === id) return node;
@@ -112,6 +112,24 @@ export const buildSystem = (mode: SaveMode) => {
 
   loadedState = processDevMode(loadedState);
 
+  let offlineYieldKB = 0;
+  if (loadedState.lastTickAt > 0 && loadedState.autoMinerData > 0) {
+    const elapsed = Math.min(Date.now() - loadedState.lastTickAt, OFFLINE_YIELD_CAP_MS);
+    const ticks = Math.floor(elapsed / Math.max(1, loadedState.autoMinerInterval));
+    if (ticks > 0) {
+      offlineYieldKB = Math.floor(ticks * loadedState.autoMinerData * OFFLINE_YIELD_RATE);
+      loadedState = {
+        ...loadedState,
+        dataKB: loadedState.dataKB + offlineYieldKB,
+        stats: {
+          ...loadedState.stats,
+          totalMinedKB: loadedState.stats.totalMinedKB + offlineYieldKB,
+        },
+      };
+    }
+  }
+  loadedState = { ...loadedState, lastTickAt: Date.now() };
+
   const rawFS = generateFileSystem(
     loadedState.currentIteration,
     loadedState.runSeed,
@@ -123,5 +141,5 @@ export const buildSystem = (mode: SaveMode) => {
     loadedState.modifiedNodes || {}
   );
 
-  return { loadedState, finalFS };
+  return { loadedState, finalFS, offlineYieldKB };
 };

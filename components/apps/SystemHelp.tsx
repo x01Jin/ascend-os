@@ -13,6 +13,8 @@ const SystemHelp: React.FC<SystemHelpProps> = ({ onOpenCore }) => {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest?.('[data-minigame]')) return;
       const char = e.key.toLowerCase();
       if (!/^[a-z]$/.test(char)) return;
 

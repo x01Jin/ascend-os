@@ -16,7 +16,7 @@ Every node on the winning path grows siblings: `randInt(3, 5 + floor(iteration /
 Per slot:
 
 - Roll above 0.95: hardware module (~5%).
-- Roll above 0.88: supply drop (~7%).
+- Roll above 0.82: supply drop (~13%).
 - Otherwise a folder (60-70% depending on depth) or a `.txt` log dump with lore-fragment filler.
 
 Folder names come from a fixed tech-word list with numeric suffixes.

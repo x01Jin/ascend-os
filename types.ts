@@ -53,6 +53,12 @@ export interface DirectoryNode {
 
 export type FileSystemNode = FileNode | DirectoryNode;
 
+export interface TeleportTarget {
+  dirId: string;
+  nonce: number;
+  windowId: string | null;
+}
+
 export enum AppId {
   EXPLORER = 'explorer',
   TEXT_VIEWER = 'text_viewer',
@@ -110,6 +116,7 @@ export interface GameState {
 
   autoMinerData: number;
   autoMinerInterval: number;
+  lastTickAt: number;
 
   runSeed: number;
   consumedIds: string[];
@@ -129,6 +136,8 @@ export interface GameState {
   passes: number;
   fuelPaidIter: number;
   ghostSolvedIter: number;
+  revealedDepths: number[];
+  exploredDirIds: string[];
   unlockedTools: string[];
 }
 

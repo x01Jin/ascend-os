@@ -35,7 +35,10 @@ const Minigames: React.FC<MinigameProps> = ({
   const meta = MINIGAMES.find(g => g.id === gameId);
 
   return (
-    <div className="h-full flex flex-col bg-gray-950 text-gray-300 font-mono text-sm">
+    <div
+      data-minigame="true"
+      className="h-full flex flex-col bg-gray-950 text-gray-300 font-mono text-sm"
+    >
       <div className="flex items-center gap-2 p-2 border-b border-gray-800">
         <span className="text-xs font-bold text-white">{meta?.title ?? gameId}</span>
         <span className="text-xs text-gray-500">{meta?.goal ?? ''}</span>

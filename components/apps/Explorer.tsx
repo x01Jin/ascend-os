@@ -21,6 +21,7 @@ import {
   FileExtension,
   FileSystemNode,
   NotificationType,
+  TeleportTarget,
 } from '../../types';
 import { ContextMenuItem } from '../ContextMenu';
 import { scanCostFor } from '../../constants';
@@ -41,8 +42,9 @@ interface ExplorerProps {
   onNavigateDir?: (dir: DirectoryNode) => void;
   onOffering?: () => void;
   onProperties?: (file: FileSystemNode) => void;
-  teleportTarget?: { dirId: string; nonce: number } | null;
+  teleportTarget?: TeleportTarget | null;
   currentIteration: number;
+  windowId: string;
 }
 
 const formatSize = (kb: number) => {
@@ -67,6 +69,7 @@ const Explorer: React.FC<ExplorerProps> = ({
   onProperties,
   teleportTarget,
   currentIteration,
+  windowId,
 }) => {
   const [currentDir, setCurrentDir] = useState<DirectoryNode>(root);
   const [history, setHistory] = useState<DirectoryNode[]>([root]);
@@ -104,7 +107,11 @@ const Explorer: React.FC<ExplorerProps> = ({
   }
 
   const [appliedTeleport, setAppliedTeleport] = useState<number | null>(null);
-  if (teleportTarget && teleportTarget.nonce !== appliedTeleport) {
+  if (
+    teleportTarget &&
+    (!teleportTarget.windowId || teleportTarget.windowId === windowId) &&
+    teleportTarget.nonce !== appliedTeleport
+  ) {
     setAppliedTeleport(teleportTarget.nonce);
     const target = findNode(root, teleportTarget.dirId);
     if (target && target.type === FileType.FOLDER) {
@@ -118,12 +125,13 @@ const Explorer: React.FC<ExplorerProps> = ({
   const notifiedTeleport = useRef<number | null>(null);
   useEffect(() => {
     if (!teleportTarget || notifiedTeleport.current === teleportTarget.nonce) return;
+    if (teleportTarget.windowId && teleportTarget.windowId !== windowId) return;
     const target = findNode(root, teleportTarget.dirId);
     if (target && target.type === FileType.FOLDER) {
       notifiedTeleport.current = teleportTarget.nonce;
       onNavigateDir?.(target as DirectoryNode);
     }
-  }, [teleportTarget, root, onNavigateDir]);
+  }, [teleportTarget, root, onNavigateDir, windowId]);
 
   useEffect(() => {
     if (renamingId && renameInputRef.current) {

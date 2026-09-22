@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   GameState,
   WindowState,
@@ -11,6 +11,7 @@ import {
   AppNotification,
   NotificationType,
   NodeModification,
+  TeleportTarget,
 } from './types';
 import { generateFileSystem } from './services/generator';
 import {
@@ -53,7 +54,7 @@ import Achievements from './components/apps/Achievements';
 import EggHunt from './components/apps/EggHunt';
 import AscensionGate from './components/apps/AscensionGate';
 import Minigames from './components/apps/Minigames';
-import Cartographer from './components/apps/Cartographer';
+import Cartographer, { revealCostFor } from './components/apps/Cartographer';
 import Radar from './components/apps/Radar';
 import { MINIGAMES, fuelFeeKB, getGateStatus } from './services/gate';
 import ThankYouLetter from './components/system/ThankYouLetter';
@@ -75,6 +76,17 @@ const handleFactoryReset = () => {
   window.location.reload();
 };
 
+const instanceKeyOf = (appId: AppId, data?: unknown): string | null => {
+  if (appId === AppId.EXPLORER) return null;
+  if (appId === AppId.TEXT_VIEWER || appId === AppId.ASCENSION || appId === AppId.EGG) {
+    return `${appId}:${(data as FileNode | undefined)?.id ?? 'new'}`;
+  }
+  if (appId === AppId.MINIGAME) {
+    return `${appId}:${(data as { gameId?: string } | undefined)?.gameId ?? 'new'}`;
+  }
+  return appId;
+};
+
 const App: React.FC = () => {
   const [initialSystem] = useState(() => {
     const mode = getSaveMode();
@@ -83,12 +95,14 @@ const App: React.FC = () => {
   const [saveMode, setSaveModeState] = useState<SaveMode>(initialSystem.mode);
   const [gameState, setGameState] = useState<GameState>(initialSystem.loadedState);
   const [fileSystem, setFileSystem] = useState<DirectoryNode | null>(initialSystem.finalFS);
+  const offlineYieldRef = useRef(initialSystem.offlineYieldKB);
 
   const [isBooting, setIsBooting] = useState(true);
   const [isAscending, setIsAscending] = useState(false);
 
   const [windows, setWindows] = useState<WindowState[]>([]);
   const [activeWindowId, setActiveWindowId] = useState<string | null>(null);
+  const [lastExplorerId, setLastExplorerId] = useState<string | null>(null);
   const [nextZIndex, setNextZIndex] = useState(100);
   const [cascadeCount, setCascadeCount] = useState(0);
   if (windows.length === 0 && cascadeCount > 0) {
@@ -161,6 +175,8 @@ const App: React.FC = () => {
           newState.dataKB = 999999999999;
         }
 
+        newState.lastTickAt = Date.now();
+
         return newState;
       });
     }, gameState.autoMinerInterval);
@@ -193,6 +209,19 @@ const App: React.FC = () => {
   const dismissNotification = (id: string) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
   };
+
+  useEffect(() => {
+    if (!isBooting && offlineYieldRef.current > 0) {
+      const yieldKB = offlineYieldRef.current;
+      offlineYieldRef.current = 0;
+      const amount = yieldKB >= 1024 ? `${(yieldKB / 1024).toFixed(1)} MB` : `${yieldKB} KB`;
+      addNotification(
+        'OFFLINE YIELD',
+        `Autominer ran at 50% while away: +${amount}.`,
+        NotificationType.SUCCESS
+      );
+    }
+  }, [isBooting, addNotification]);
 
   const unlockAchievement = useCallback((id: string) => {
     setGameState(prev => {
@@ -340,13 +369,9 @@ const App: React.FC = () => {
 
   const openWindow = useCallback(
     (appId: AppId, data?: unknown) => {
-      const singleInstanceApps = new Set<AppId>([
-        AppId.CORE_SETTINGS,
-        AppId.HELP,
-        AppId.PERSONALIZE,
-      ]);
-      if (singleInstanceApps.has(appId)) {
-        const existing = windows.find(w => w.appId === appId);
+      const key = instanceKeyOf(appId, data);
+      if (key !== null) {
+        const existing = windows.find(w => instanceKeyOf(w.appId, w.data) === key);
         if (existing) {
           setWindows(prev =>
             prev.map(w =>
@@ -359,7 +384,7 @@ const App: React.FC = () => {
         }
       }
 
-      const id = `${appId}_${Date.now()}`;
+      const id = `${appId}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
       let title = 'Application';
 
       switch (appId) {
@@ -429,6 +454,8 @@ const App: React.FC = () => {
       setActiveWindowId(id);
       setNextZIndex(prev => prev + 1);
       setCascadeCount(currentCascadeCount + 1);
+      if (appId === AppId.EXPLORER) setLastExplorerId(id);
+      return id;
     },
     [nextZIndex, cascadeCount, windows]
   );
@@ -436,10 +463,14 @@ const App: React.FC = () => {
   const closeWindow = (id: string) => {
     setWindows(prev => prev.filter(w => w.id !== id));
     if (activeWindowId === id) setActiveWindowId(null);
+    if (lastExplorerId === id) setLastExplorerId(null);
     setCascadeCount(0);
   };
 
   const focusWindow = (id: string) => {
+    if (windows.some(w => w.id === id && w.appId === AppId.EXPLORER)) {
+      setLastExplorerId(id);
+    }
     if (activeWindowId === id) {
       const win = windows.find(w => w.id === id);
       if (win?.isMinimized) {
@@ -554,13 +585,24 @@ const App: React.FC = () => {
     });
   };
 
-  const [teleportTarget, setTeleportTarget] = useState<{ dirId: string; nonce: number } | null>(
-    null
-  );
+  const [teleportTarget, setTeleportTarget] = useState<TeleportTarget | null>(null);
 
   const handleTeleport = (dirId: string) => {
-    setTeleportTarget({ dirId, nonce: Date.now() });
-    openWindow(AppId.EXPLORER);
+    const explorers = windows.filter(w => w.appId === AppId.EXPLORER);
+    const target =
+      explorers.find(w => w.id === lastExplorerId) ??
+      explorers.reduce<WindowState | null>(
+        (top, w) => (!top || w.zIndex > top.zIndex ? w : top),
+        null
+      );
+    if (target) {
+      focusWindow(target.id);
+      setLastExplorerId(target.id);
+      setTeleportTarget({ dirId, nonce: Date.now(), windowId: target.id });
+    } else {
+      openWindow(AppId.EXPLORER);
+      setTeleportTarget({ dirId, nonce: Date.now(), windowId: null });
+    }
   };
 
   const handleUnlockTool = (tool: string) => {
@@ -651,6 +693,21 @@ const App: React.FC = () => {
 
   const handleConsumeAutoMark = () => {
     setGameState(prev => ({ ...prev, autoMarkCount: Math.max(0, prev.autoMarkCount - 1) }));
+  };
+
+  const handleRevealLevel = (level: number) => {
+    if (!fileSystem || gameState.revealedDepths.includes(level)) return;
+    const cost = revealCostFor(fileSystem, level, gameState.exploredDirIds);
+    if (gameState.autoMarkCount < cost) return;
+    setGameState(prev =>
+      prev.revealedDepths.includes(level) || prev.autoMarkCount < cost
+        ? prev
+        : {
+            ...prev,
+            autoMarkCount: prev.autoMarkCount - cost,
+            revealedDepths: [...prev.revealedDepths, level],
+          }
+    );
   };
 
   const handleToggleBoost = (multiplier: number) => {
@@ -844,6 +901,8 @@ const App: React.FC = () => {
         activeBoostMultiplier: null,
         consumedIds: [],
         modifiedNodes: {},
+        revealedDepths: [...INITIAL_GAME_STATE.revealedDepths],
+        exploredDirIds: [],
         stats: { ...prev.stats, ascensions: prev.stats.ascensions + 1 },
       };
 
@@ -964,9 +1023,12 @@ const App: React.FC = () => {
     }
   };
 
-  const handleReadFile = (file: FileNode) => {
-    if (file.loreId) seeLore(file.loreId);
-  };
+  const handleReadFile = useCallback(
+    (file: FileNode) => {
+      if (file.loreId) seeLore(file.loreId);
+    },
+    [seeLore]
+  );
 
   const handleUnlockedFile = (file: FileNode) => {
     if (file.secretId) {
@@ -999,6 +1061,11 @@ const App: React.FC = () => {
   };
 
   const handleNavigateDir = (dir: DirectoryNode) => {
+    setGameState(prev =>
+      prev.exploredDirIds.includes(dir.id)
+        ? prev
+        : { ...prev, exploredDirIds: [...prev.exploredDirIds, dir.id] }
+    );
     if (!dir.id.startsWith('cache_')) return;
     const seen = gameState.loreSeen;
     const order = [1, 2, 3, 4, 5].map(n => seen.indexOf(`lore_archivist_${n}`));
@@ -1174,6 +1241,7 @@ const App: React.FC = () => {
           {win.appId === AppId.EXPLORER && fileSystem && (
             <Explorer
               root={fileSystem}
+              windowId={win.id}
               onOpenFile={handleOpenFile}
               onContextMenu={handleContextMenu}
               onUpdateNode={handleUpdateNode}
@@ -1215,7 +1283,14 @@ const App: React.FC = () => {
             />
           )}
           {win.appId === AppId.CARTOGRAPHER && fileSystem && (
-            <Cartographer root={fileSystem} onTeleport={handleTeleport} />
+            <Cartographer
+              root={fileSystem}
+              revealedDepths={gameState.revealedDepths}
+              exploredDirIds={gameState.exploredDirIds}
+              autoMarkCount={gameState.autoMarkCount}
+              onTeleport={handleTeleport}
+              onRevealLevel={handleRevealLevel}
+            />
           )}
           {win.appId === AppId.RADAR && fileSystem && (
             <Radar root={fileSystem} onTeleport={handleTeleport} />

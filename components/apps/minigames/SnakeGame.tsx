@@ -28,10 +28,10 @@ const SnakeGame: React.FC<{ onWin: () => void }> = ({ onWin }) => {
     };
 
     const key = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowUp' && dir.y !== 1) dir = { x: 0, y: -1 };
-      else if (e.key === 'ArrowDown' && dir.y !== -1) dir = { x: 0, y: 1 };
-      else if (e.key === 'ArrowLeft' && dir.x !== 1) dir = { x: -1, y: 0 };
-      else if (e.key === 'ArrowRight' && dir.x !== -1) dir = { x: 1, y: 0 };
+      if ((e.key === 'ArrowUp' || e.code === 'KeyW') && dir.y !== 1) dir = { x: 0, y: -1 };
+      else if ((e.key === 'ArrowDown' || e.code === 'KeyS') && dir.y !== -1) dir = { x: 0, y: 1 };
+      else if ((e.key === 'ArrowLeft' || e.code === 'KeyA') && dir.x !== 1) dir = { x: -1, y: 0 };
+      else if ((e.key === 'ArrowRight' || e.code === 'KeyD') && dir.x !== -1) dir = { x: 1, y: 0 };
       else return;
       e.preventDefault();
     };
@@ -92,7 +92,7 @@ const SnakeGame: React.FC<{ onWin: () => void }> = ({ onWin }) => {
         className="border border-gray-700 rounded max-w-full h-auto"
       />
       <p className="text-xs text-gray-500 font-mono">
-        {eaten >= 10 ? '10 pellets. cabinet satisfied.' : 'arrow keys. eat 10.'}
+        {eaten >= 10 ? '10 pellets. cabinet satisfied.' : 'arrows/wasd. eat 10.'}
       </p>
     </div>
   );

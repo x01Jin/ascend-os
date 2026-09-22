@@ -316,6 +316,10 @@ const Clicker: React.FC<ClickerProps> = ({
                   {(autoMinerInterval / 1000).toFixed(2)}s
                 </span>
               </div>
+              <div className="flex justify-between text-xs font-mono">
+                <span className="text-gray-500">AWAY RATE</span>
+                <span className={isAutoMining ? 'text-cyan-200' : 'text-gray-600'}>50%</span>
+              </div>
             </div>
 
             {isAutoMining && (

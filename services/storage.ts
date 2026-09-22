@@ -65,6 +65,9 @@ export const loadGame = (mode: SaveMode): GameState | null => {
       if (parsed.autoMinerInterval === undefined) {
         parsed.autoMinerInterval = AUTOMINER_DEFAULT_INTERVAL;
       }
+      if (parsed.lastTickAt === undefined) {
+        parsed.lastTickAt = 0;
+      }
 
       if (parsed.runSeed === undefined || parsed.runSeed === 0) {
         parsed.runSeed = Date.now();
@@ -119,6 +122,12 @@ export const loadGame = (mode: SaveMode): GameState | null => {
       }
       if (!parsed.unlockedTools) {
         parsed.unlockedTools = [];
+      }
+      if (!parsed.revealedDepths) {
+        parsed.revealedDepths = [...INITIAL_GAME_STATE.revealedDepths];
+      }
+      if (!parsed.exploredDirIds) {
+        parsed.exploredDirIds = [];
       }
 
       if (mode === 'NORMAL') {

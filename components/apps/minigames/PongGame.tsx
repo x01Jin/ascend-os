@@ -28,8 +28,18 @@ const PongGame: React.FC<{ onWin: () => void }> = ({ onWin }) => {
     let raf = 0;
     const keys = new Set<string>();
 
-    const keyDown = (e: KeyboardEvent) => keys.add(e.key);
-    const keyUp = (e: KeyboardEvent) => keys.delete(e.key);
+    const keyDown = (e: KeyboardEvent) => {
+      if (
+        e.code === 'ArrowUp' ||
+        e.code === 'ArrowDown' ||
+        e.code === 'KeyW' ||
+        e.code === 'KeyS'
+      ) {
+        e.preventDefault();
+        keys.add(e.code);
+      }
+    };
+    const keyUp = (e: KeyboardEvent) => keys.delete(e.code);
     window.addEventListener('keydown', keyDown);
     window.addEventListener('keyup', keyUp);
 
@@ -41,8 +51,8 @@ const PongGame: React.FC<{ onWin: () => void }> = ({ onWin }) => {
     };
 
     const step = () => {
-      if (keys.has('ArrowUp')) playerY = Math.max(0, playerY - 5);
-      if (keys.has('ArrowDown')) playerY = Math.min(H - 50, playerY + 5);
+      if (keys.has('ArrowUp') || keys.has('KeyW')) playerY = Math.max(0, playerY - 5);
+      if (keys.has('ArrowDown') || keys.has('KeyS')) playerY = Math.min(H - 50, playerY + 5);
       aiY += Math.max(-3, Math.min(3, by - (aiY + 25))) * 0.85;
       aiY = Math.max(0, Math.min(H - 50, aiY));
 

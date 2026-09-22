@@ -14,7 +14,7 @@ const TextViewer: React.FC<TextViewerProps> = ({ file, onUnlocked, onRead }) => 
 
   React.useEffect(() => {
     onRead?.(file);
-  }, [file.id]);
+  }, [file, onRead]);
 
   if (!locked) {
     return (

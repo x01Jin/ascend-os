@@ -81,9 +81,9 @@ const generatePackageContent = (): PackageContent => {
     const duration = randInt(1, 5);
     return { type: 'BOOST', value: duration * 1000, multiplier };
   } else if (roll > 0.6) {
-    return { type: 'AUTOMARK', value: randInt(2, 4) };
+    return { type: 'AUTOMARK', value: randInt(3, 6) };
   } else {
-    const mb = randInt(5, 10);
+    const mb = randInt(8, 14);
     return { type: 'DATA', value: mb * 1024 };
   }
 };
@@ -144,7 +144,7 @@ const generateJunkStructure = (
       continue;
     }
 
-    if (roll > 0.88) {
+    if (roll > 0.82) {
       const file: FileNode = {
         id: `pkg_${parent.id}_${i}`,
         name: `supply_${randInt(100, 999)}`,
@@ -277,7 +277,7 @@ export const generateFileSystem = (
         continue;
       }
 
-      if (roll > 0.88) {
+      if (roll > 0.82) {
         const file: FileNode = {
           id: `pkg_root_${node.id}_${i}`,
           name: `supply_${randInt(100, 999)}`,
