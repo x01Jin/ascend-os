@@ -10,7 +10,7 @@ export interface GateItem {
 export const MINIGAMES = [
   { id: 'pong', title: 'Pong', goal: 'First to 5 vs the machine.' },
   { id: 'dino', title: 'Dino Run', goal: 'Survive 20 seconds.' },
-  { id: 'tictactoe', title: 'Tic-Tac-Toe', goal: 'Beat the machine once.' },
+  { id: 'tictactoe', title: 'Tic-Tac-Toe', goal: 'Win a best-of-five series.' },
   { id: 'snake', title: 'Snake', goal: 'Eat 10 pellets.' },
   { id: 'memory', title: 'Memory', goal: 'Clear all 6 pairs.' },
 ] as const;
@@ -29,9 +29,7 @@ export const gateMinigames = (state: GameState): MinigameId[] => {
 export const getGateStatus = (state: GameState): { items: GateItem[]; complete: boolean } => {
   const part = gatePartFor(state.currentIteration);
   const picked = gateMinigames(state);
-  const trailDone =
-    state.trailProof[state.currentIteration] === state.currentIteration ||
-    state.unscrambledTrail.includes(state.currentIteration);
+  const trailDone = state.trailProof[state.currentIteration] === state.currentIteration;
   const items: GateItem[] = [
     {
       id: 'trail',

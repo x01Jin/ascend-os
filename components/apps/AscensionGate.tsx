@@ -2,6 +2,7 @@ import React from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { DirectoryNode, FileExtension, FileNode, FileType, GameState } from '../../types';
 import { MINIGAMES, fuelFeeKB, gatePartFor, getGateStatus } from '../../services/gate';
+import { MINIGAME_ICONS, MINIGAME_ICON_COLORS } from './minigames/minigameIcons';
 import { locateCostFor } from '../../constants';
 import {
   archivistFileIdFor,
@@ -90,7 +91,7 @@ const AscensionGate: React.FC<AscensionGateProps> = ({
       name: `${gameId}_location`,
       type: FileType.FILE,
       extension: FileExtension.TXT,
-      content: `// ${(meta?.title ?? gameId).toUpperCase()} TERMINAL - LAYER ${iteration}\n\n> DIRECTORY: ${dirId}\n> Teleport an explorer straight there.`,
+      content: `// ${(meta?.title ?? gameId).toUpperCase()} TERMINAL - LAYER ${iteration}\n\n> DIRECTORY: ${dirId}\n> Location of the file.`,
       parentId: null,
       isWinningPath: false,
     });
@@ -106,6 +107,7 @@ const AscensionGate: React.FC<AscensionGateProps> = ({
       <div className="w-full max-w-md flex-1 min-h-0 overflow-y-auto text-left font-mono text-sm mb-3 space-y-2 py-1">
         {items.map(item => {
           const gameId = item.minigameId;
+          const GateIcon = gameId ? MINIGAME_ICONS[gameId] : null;
           return (
             <div
               key={item.id}
@@ -118,6 +120,9 @@ const AscensionGate: React.FC<AscensionGateProps> = ({
               <span className="w-6 text-center shrink-0 whitespace-nowrap">
                 {item.done ? '[x]' : '[ ]'}
               </span>
+              {GateIcon && gameId && (
+                <GateIcon size={16} className={`shrink-0 ${MINIGAME_ICON_COLORS[gameId]}`} />
+              )}
               <span className="flex-1">{item.label}</span>
               {gameId && !item.done && (
                 <button

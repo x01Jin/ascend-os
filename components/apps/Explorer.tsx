@@ -27,6 +27,7 @@ import {
 import { ContextMenuItem } from '../ContextMenu';
 import { scanCostFor } from '../../constants';
 import { findNodeById as findNode } from '../../services/filesystem';
+import { MINIGAME_ICONS, MINIGAME_ICON_COLORS, minigameIdForExe } from './minigames/minigameIcons';
 
 interface ExplorerProps {
   root: DirectoryNode;
@@ -369,6 +370,16 @@ const Explorer: React.FC<ExplorerProps> = ({
               const isSelected = selectedId === child.id;
               const isRenaming = renamingId === child.id;
               const isScanned = child.isScanned;
+              const exeGameId =
+                child.type === FileType.FILE && child.extension === FileExtension.EXE
+                  ? minigameIdForExe(child.id, currentIteration)
+                  : null;
+              const exeMeta = exeGameId
+                ? {
+                    Icon: MINIGAME_ICONS[exeGameId],
+                    color: MINIGAME_ICON_COLORS[exeGameId],
+                  }
+                : null;
 
               return (
                 <div
@@ -427,6 +438,11 @@ const Explorer: React.FC<ExplorerProps> = ({
                       <Upload
                         size={40}
                         className={`${isSelected ? 'text-green-400' : 'text-green-600 group-hover:text-green-500'} animate-pulse`}
+                      />
+                    ) : exeMeta ? (
+                      <exeMeta.Icon
+                        size={36}
+                        className={isScanned ? 'text-green-400 animate-pulse' : exeMeta.color}
                       />
                     ) : child.type === FileType.FILE && child.extension === FileExtension.EXE ? (
                       <Cpu

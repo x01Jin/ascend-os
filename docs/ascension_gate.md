@@ -4,7 +4,7 @@ Running `ascend.exe` opens the gate dialog instead of ascending directly. All it
 
 ## Checklist
 
-1. **Trail**: the layer's `archivist_N` file is opened this iteration (`trailProof[iteration]` stamped on read, with `N = min(iteration, 5)`). Solving the bought trail scramble also satisfies it. Re-reading an old layer's entry does not count.
+1. **Trail**: the layer's `archivist_N` file is opened this iteration (`trailProof[iteration]` stamped on read, with `N = min(iteration, 5)`). Solving the bought trail scramble only reveals the directory id; it never checks the box. Re-reading an old layer's entry does not count.
 2. **Minigames**: beat the 3 picked cabinets this iteration. The pick rotates deterministically from `runSeed` and iteration.
 3. **Fuel**: pay `25 MB * iteration`, once per iteration. The deduction re-checks the live balance, so a double click pays once.
 

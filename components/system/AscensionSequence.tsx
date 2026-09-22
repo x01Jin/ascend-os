@@ -21,13 +21,12 @@ const AscensionSequence: React.FC<AscensionSequenceProps> = ({ currentIteration,
   useEffect(() => {
     const logs = [
       'ENCRYPTING LOCAL STATE...',
-      'COMPRESSING ENTROPY...',
+      '[REDACTED] ENTROPY...',
       'ESTABLISHING UPLINK...',
-      'BYPASSING FIREWALL...',
-      'UPLOADING CONSCIOUSNESS...',
+      'CALIBRATING SYSTEM...',
       'PACKETIZING MEMORY...',
+      'RECONFIGURING SYSTEM...',
       'PURGING LOCAL CACHE...',
-      '[ASCEND LOG-08] prior node read-only. tree size plus one.',
       'ASCENSION COMPLETE.',
     ];
 

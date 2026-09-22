@@ -3,6 +3,15 @@ import React, { useEffect, useRef } from 'react';
 const W = 400;
 const H = 300;
 
+const AI_BASE_TRACK = 0.3;
+const AI_BASE_MAX_STEP = 1.1;
+const AI_TRACK_GAIN = 0.05;
+const AI_STEP_GAIN = 0.2;
+const AI_MAX_TRACK = 0.6;
+const AI_MAX_STEP = 2.2;
+const AI_DEADZONE = 14;
+const AI_TARGET = 5;
+
 const PongGame: React.FC<{ onWin: () => void }> = ({ onWin }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wonRef = useRef(false);
@@ -25,6 +34,11 @@ const PongGame: React.FC<{ onWin: () => void }> = ({ onWin }) => {
     let vy = 2;
     let playerScore = 0;
     let aiScore = 0;
+    let aiTrack = AI_BASE_TRACK;
+    let aiMaxStep = AI_BASE_MAX_STEP;
+    let aiError = 0;
+    let frames = 0;
+    let lostAt = 0;
     let raf = 0;
     const keys = new Set<string>();
 
@@ -53,7 +67,12 @@ const PongGame: React.FC<{ onWin: () => void }> = ({ onWin }) => {
     const step = () => {
       if (keys.has('ArrowUp') || keys.has('KeyW')) playerY = Math.max(0, playerY - 5);
       if (keys.has('ArrowDown') || keys.has('KeyS')) playerY = Math.min(H - 50, playerY + 5);
-      aiY += Math.max(-3, Math.min(3, by - (aiY + 25))) * 0.85;
+      frames++;
+      if (frames % 90 === 0) aiError = (Math.random() - 0.5) * 60;
+      const dy = by + aiError - (aiY + 25);
+      if (Math.abs(dy) > AI_DEADZONE) {
+        aiY += Math.max(-aiMaxStep, Math.min(aiMaxStep, dy * aiTrack));
+      }
       aiY = Math.max(0, Math.min(H - 50, aiY));
 
       bx += vx;
@@ -63,13 +82,20 @@ const PongGame: React.FC<{ onWin: () => void }> = ({ onWin }) => {
       if (vx > 0 && bx > W - 16 && by > aiY && by < aiY + 50) vx = -vx * 1.05;
       if (bx < 0) {
         aiScore++;
+        if (aiScore >= AI_TARGET) {
+          playerScore = 0;
+          aiScore = 0;
+          lostAt = performance.now();
+        }
         reset(1);
       }
       if (bx > W) {
         playerScore++;
+        aiTrack = Math.min(AI_MAX_TRACK, aiTrack + AI_TRACK_GAIN);
+        aiMaxStep = Math.min(AI_MAX_STEP, aiMaxStep + AI_STEP_GAIN);
         reset(-1);
       }
-      if (playerScore >= 5 && !wonRef.current) {
+      if (playerScore >= AI_TARGET && !wonRef.current) {
         wonRef.current = true;
         onWinRef.current();
       }
@@ -87,6 +113,9 @@ const PongGame: React.FC<{ onWin: () => void }> = ({ onWin }) => {
       if (wonRef.current) {
         ctx.fillStyle = '#4ade80';
         ctx.fillText('YOU WIN', W / 2 - 36, H / 2);
+      } else if (performance.now() - lostAt < 2000) {
+        ctx.fillStyle = '#f87171';
+        ctx.fillText('SIGNAL LOST. SCORE RESET.', W / 2 - 100, H / 2);
       }
       raf = requestAnimationFrame(step);
     };
@@ -107,7 +136,9 @@ const PongGame: React.FC<{ onWin: () => void }> = ({ onWin }) => {
         height={H}
         className="border border-gray-700 rounded max-w-full h-auto"
       />
-      <p className="text-xs text-gray-500 font-mono">up/down arrows. first to 5.</p>
+      <p className="text-xs text-gray-500 font-mono">
+        up/down arrows. first to 5. machine at 5 resets the score.
+      </p>
     </div>
   );
 };

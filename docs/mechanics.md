@@ -14,3 +14,4 @@ Technical and mechanical reference for **Ascend OS**.
 - [Desktop environment](./desktop_environment.md)
 - [Local storage](./local_storage.md)
 - [Core settings](./core_settings.md)
+- [Deployment](./deployment.md)

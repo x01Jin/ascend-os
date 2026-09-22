@@ -1543,7 +1543,7 @@ const App: React.FC = () => {
                   scrambled: scrambledTrailWords(gameState.runSeed, iter),
                   answers: trailSetFor(gameState.runSeed, iter),
                   solved: gameState.unscrambledTrail.includes(iter),
-                  reveal: `> DIRECTORY: ${dirId}\n> Teleport an explorer straight there.`,
+                  reveal: `> DIRECTORY: ${dirId}\n> Location of the file.`,
                   onSolve: () => handleTrailSolved(iter),
                 };
               })()}

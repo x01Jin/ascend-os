@@ -20,6 +20,10 @@ Upload a wallpaper (3 MB cap, stored Base64). Persists across reloads and ascens
 
 Stacked toasts, bottom-right, auto-dismiss after 3 seconds, capped at 6 with oldest dropped and identical repeats skipped. Types: info, success, warning, error. Every first achievement, secret, and lore entry posts one.
 
+## Crash recovery
+
+If the desktop process throws during render, a full-screen fault screen replaces it. Reload retries without touching the save. Factory reset clears every slot, backup, quarantine copy, and the wallpaper key, then reloads into a fresh state.
+
 ## Aesthetics
 
 CRT scanline overlay, animated gradient background, JetBrains Mono for terminal text with Inter for UI.
