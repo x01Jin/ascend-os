@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Database, Zap, Cpu, Play, Square } from 'lucide-react';
+import { BoostMultiplier } from '../../types';
 
 interface ClickerProps {
   dataKB: number;
   onIncrement: () => void;
   clickValue: number;
-  activeMultiplier: number | null;
+  activeMultiplier: BoostMultiplier | null;
   boostBank: Record<number, number>;
-  onToggleBoost: (multiplier: number) => void;
+  onToggleBoost: (multiplier: BoostMultiplier) => void;
   autoMinerData: number;
   autoMinerInterval: number;
 }
@@ -35,185 +36,187 @@ const formatTime = (ms: number) => {
   return `${m}:${s}`;
 };
 
-const DataStream = React.memo(({ activeMultiplier }: { activeMultiplier: number | null }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const multiplierRef = useRef(activeMultiplier);
+const DataStream = React.memo(
+  ({ activeMultiplier }: { activeMultiplier: BoostMultiplier | null }) => {
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const multiplierRef = useRef(activeMultiplier);
 
-  useEffect(() => {
-    multiplierRef.current = activeMultiplier;
-  }, [activeMultiplier]);
+    useEffect(() => {
+      multiplierRef.current = activeMultiplier;
+    }, [activeMultiplier]);
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d', { alpha: true });
-    if (!ctx) return;
+    useEffect(() => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d', { alpha: true });
+      if (!ctx) return;
 
-    let animId: number;
-    let frame = 0;
-    let lastTime = 0;
-    const targetFps = 30;
-    const frameInterval = 1000 / targetFps;
+      let animId: number;
+      let frame = 0;
+      let lastTime = 0;
+      const targetFps = 30;
+      const frameInterval = 1000 / targetFps;
 
-    let phase = 0;
+      let phase = 0;
 
-    const chars = '0123456789ABCDEF';
-    const fontSize = 16;
-    const charWidth = fontSize * 0.7;
+      const chars = '0123456789ABCDEF';
+      const fontSize = 16;
+      const charWidth = fontSize * 0.7;
 
-    const THEMES = {
-      BLUE: ['#1e3a8a', '#3b82f6', '#60a5fa'],
-      RED: ['#7f1d1d', '#ef4444', '#fca5a5'],
-    };
-
-    const resize = () => {
-      const parent = canvas.parentElement;
-      if (parent) {
-        if (parent.clientWidth === 0 || parent.clientHeight === 0) return;
-        canvas.width = parent.clientWidth;
-        canvas.height = parent.clientHeight;
-      }
-    };
-    resize();
-    window.addEventListener('resize', resize);
-
-    let grid: string[][] = [];
-
-    const initGrid = () => {
-      if (canvas.width === 0 || canvas.height === 0) return;
-      const cols = Math.ceil(canvas.width / charWidth);
-      const rows = Math.ceil(canvas.height / fontSize) + 1;
-      grid = [];
-      for (let y = 0; y < rows; y++) {
-        const row = [];
-        for (let x = 0; x < cols; x++) {
-          row.push(chars[Math.floor(Math.random() * chars.length)]);
-        }
-        grid.push(row);
-      }
-    };
-    initGrid();
-
-    const render = (currentTime: number) => {
-      animId = requestAnimationFrame(render);
-
-      const delta = currentTime - lastTime;
-      if (delta < frameInterval) return;
-      lastTime = currentTime - (delta % frameInterval);
-
-      if (!canvas || !ctx || canvas.width === 0 || canvas.height === 0) {
-        return;
-      }
-
-      const cols = Math.ceil(canvas.width / charWidth);
-      const rows = Math.ceil(canvas.height / fontSize) + 1;
-
-      if (grid.length === 0 || grid.length < rows || (grid[0] && grid[0].length < cols)) {
-        initGrid();
-      }
-
-      const isOverclocked = !!multiplierRef.current;
-      const mult = multiplierRef.current || 1;
-      const currentTheme = isOverclocked ? THEMES.RED : THEMES.BLUE;
-
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      const scrollThreshold = Math.max(1, Math.floor(8 / mult));
-      if (frame % scrollThreshold === 0) {
-        grid.shift();
-        const newRow = [];
-        for (let x = 0; x < cols; x++) {
-          newRow.push(chars[Math.floor(Math.random() * chars.length)]);
-        }
-        grid.push(newRow);
-      }
-
-      const mutationCount = Math.floor(10 * mult);
-      for (let i = 0; i < mutationCount; i++) {
-        const ry = Math.floor(Math.random() * grid.length);
-        const rx = Math.floor(Math.random() * cols);
-        if (grid[ry]) {
-          grid[ry][rx] = chars[Math.floor(Math.random() * chars.length)];
-        }
-      }
-
-      const buckets: [number, number, string][][] = [[], [], []];
-
-      ctx.font = `bold ${fontSize}px monospace`;
-      ctx.textBaseline = 'top';
-
-      grid.forEach((row, y) => {
-        const yPos = y * fontSize;
-        if (yPos > canvas.height) return;
-
-        row.forEach((char, x) => {
-          const rand = Math.random();
-          let bIdx = 0;
-          if (rand > 0.95) bIdx = 2;
-          else if (rand > 0.85) bIdx = 1;
-
-          buckets[bIdx].push([x * charWidth, yPos, char]);
-        });
-      });
-
-      buckets.forEach((items, idx) => {
-        if (items.length === 0) return;
-        ctx.fillStyle = currentTheme[idx];
-        for (let i = 0; i < items.length; i++) {
-          ctx.fillText(items[i][2] as string, items[i][0] as number, items[i][1] as number);
-        }
-      });
-
-      const waveAmp = isOverclocked ? 15 : 8;
-      const waveSpeed = isOverclocked ? 0.2 : 0.05;
-      const waveFreq = 0.02;
-      const surfaceBaseY = 30;
-
-      const getWaveY = (x: number) => {
-        return (
-          surfaceBaseY +
-          Math.sin(x * waveFreq + phase) * waveAmp +
-          Math.cos(x * (waveFreq * 0.5) + phase * 1.3) * (waveAmp * 0.5)
-        );
+      const THEMES = {
+        BLUE: ['#1e3a8a', '#3b82f6', '#60a5fa'],
+        RED: ['#7f1d1d', '#ef4444', '#fca5a5'],
       };
 
-      ctx.globalCompositeOperation = 'destination-out';
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.lineTo(0, getWaveY(0));
+      const resize = () => {
+        const parent = canvas.parentElement;
+        if (parent) {
+          if (parent.clientWidth === 0 || parent.clientHeight === 0) return;
+          canvas.width = parent.clientWidth;
+          canvas.height = parent.clientHeight;
+        }
+      };
+      resize();
+      window.addEventListener('resize', resize);
 
-      for (let x = 0; x <= canvas.width; x += 10) {
-        ctx.lineTo(x, getWaveY(x));
-      }
+      let grid: string[][] = [];
 
-      ctx.lineTo(canvas.width, getWaveY(canvas.width));
+      const initGrid = () => {
+        if (canvas.width === 0 || canvas.height === 0) return;
+        const cols = Math.ceil(canvas.width / charWidth);
+        const rows = Math.ceil(canvas.height / fontSize) + 1;
+        grid = [];
+        for (let y = 0; y < rows; y++) {
+          const row = [];
+          for (let x = 0; x < cols; x++) {
+            row.push(chars[Math.floor(Math.random() * chars.length)]);
+          }
+          grid.push(row);
+        }
+      };
+      initGrid();
 
-      ctx.lineTo(canvas.width, 0);
-      ctx.lineTo(0, 0);
-      ctx.closePath();
-      ctx.fill();
+      const render = (currentTime: number) => {
+        animId = requestAnimationFrame(render);
 
-      ctx.globalCompositeOperation = 'source-over';
+        const delta = currentTime - lastTime;
+        if (delta < frameInterval) return;
+        lastTime = currentTime - (delta % frameInterval);
 
-      phase += waveSpeed;
-      frame++;
-    };
+        if (!canvas || !ctx || canvas.width === 0 || canvas.height === 0) {
+          return;
+        }
 
-    animId = requestAnimationFrame(render);
+        const cols = Math.ceil(canvas.width / charWidth);
+        const rows = Math.ceil(canvas.height / fontSize) + 1;
 
-    return () => {
-      window.removeEventListener('resize', resize);
-      cancelAnimationFrame(animId);
-    };
-  }, []);
+        if (grid.length === 0 || grid.length < rows || (grid[0] && grid[0].length < cols)) {
+          initGrid();
+        }
 
-  return (
-    <div className="w-full h-full relative overflow-hidden">
-      <canvas ref={canvasRef} className="block w-full h-full" />
-      <div className="absolute inset-0 bg-gradient-to-t from-gray-950/80 via-transparent to-transparent pointer-events-none"></div>
-    </div>
-  );
-});
+        const isOverclocked = !!multiplierRef.current;
+        const mult = multiplierRef.current || 1;
+        const currentTheme = isOverclocked ? THEMES.RED : THEMES.BLUE;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        const scrollThreshold = Math.max(1, Math.floor(8 / mult));
+        if (frame % scrollThreshold === 0) {
+          grid.shift();
+          const newRow = [];
+          for (let x = 0; x < cols; x++) {
+            newRow.push(chars[Math.floor(Math.random() * chars.length)]);
+          }
+          grid.push(newRow);
+        }
+
+        const mutationCount = Math.floor(10 * mult);
+        for (let i = 0; i < mutationCount; i++) {
+          const ry = Math.floor(Math.random() * grid.length);
+          const rx = Math.floor(Math.random() * cols);
+          if (grid[ry]) {
+            grid[ry][rx] = chars[Math.floor(Math.random() * chars.length)];
+          }
+        }
+
+        const buckets: [number, number, string][][] = [[], [], []];
+
+        ctx.font = `bold ${fontSize}px monospace`;
+        ctx.textBaseline = 'top';
+
+        grid.forEach((row, y) => {
+          const yPos = y * fontSize;
+          if (yPos > canvas.height) return;
+
+          row.forEach((char, x) => {
+            const rand = Math.random();
+            let bIdx = 0;
+            if (rand > 0.95) bIdx = 2;
+            else if (rand > 0.85) bIdx = 1;
+
+            buckets[bIdx].push([x * charWidth, yPos, char]);
+          });
+        });
+
+        buckets.forEach((items, idx) => {
+          if (items.length === 0) return;
+          ctx.fillStyle = currentTheme[idx];
+          for (let i = 0; i < items.length; i++) {
+            ctx.fillText(items[i][2] as string, items[i][0] as number, items[i][1] as number);
+          }
+        });
+
+        const waveAmp = isOverclocked ? 15 : 8;
+        const waveSpeed = isOverclocked ? 0.2 : 0.05;
+        const waveFreq = 0.02;
+        const surfaceBaseY = 30;
+
+        const getWaveY = (x: number) => {
+          return (
+            surfaceBaseY +
+            Math.sin(x * waveFreq + phase) * waveAmp +
+            Math.cos(x * (waveFreq * 0.5) + phase * 1.3) * (waveAmp * 0.5)
+          );
+        };
+
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(0, getWaveY(0));
+
+        for (let x = 0; x <= canvas.width; x += 10) {
+          ctx.lineTo(x, getWaveY(x));
+        }
+
+        ctx.lineTo(canvas.width, getWaveY(canvas.width));
+
+        ctx.lineTo(canvas.width, 0);
+        ctx.lineTo(0, 0);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.globalCompositeOperation = 'source-over';
+
+        phase += waveSpeed;
+        frame++;
+      };
+
+      animId = requestAnimationFrame(render);
+
+      return () => {
+        window.removeEventListener('resize', resize);
+        cancelAnimationFrame(animId);
+      };
+    }, []);
+
+    return (
+      <div className="w-full h-full relative overflow-hidden">
+        <canvas ref={canvasRef} className="block w-full h-full" />
+        <div className="absolute inset-0 bg-gradient-to-t from-gray-950/80 via-transparent to-transparent pointer-events-none"></div>
+      </div>
+    );
+  }
+);
 
 const Clicker: React.FC<ClickerProps> = ({
   dataKB,
@@ -227,7 +230,7 @@ const Clicker: React.FC<ClickerProps> = ({
 }) => {
   const [isAnimating, setIsAnimating] = useState(false);
   const [floatingTexts, setFloatingTexts] = useState<FloatingText[]>([]);
-  const [selectedMultiplier, setSelectedMultiplier] = useState<number>(2);
+  const [selectedMultiplier, setSelectedMultiplier] = useState<BoostMultiplier>(2);
   const [lastAutoMine, setLastAutoMine] = useState<number>(() => Date.now());
 
   useEffect(() => {
@@ -361,7 +364,7 @@ const Clicker: React.FC<ClickerProps> = ({
             </div>
 
             <div className="flex justify-between gap-1 mb-2">
-              {[2, 3, 4, 5].map(m => (
+              {([2, 3, 4, 5] as const).map(m => (
                 <button
                   key={m}
                   onClick={() => setSelectedMultiplier(m)}

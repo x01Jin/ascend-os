@@ -21,9 +21,6 @@ export const fuelFeeKB = (iteration: number): number => 25 * 1024 * iteration;
 
 export const gatePartFor = (iteration: number): number => Math.min(iteration, 5);
 
-export const minigameWinsThisIteration = (state: GameState): number =>
-  MINIGAMES.filter(g => state.arcadeWins[g.id] === state.currentIteration).length;
-
 export const gateMinigames = (state: GameState): MinigameId[] => {
   const start = (state.runSeed + state.currentIteration * 7919) % MINIGAMES.length;
   return [0, 1, 2].map(i => MINIGAMES[(start + i) % MINIGAMES.length].id);
@@ -37,11 +34,6 @@ export const getGateStatus = (state: GameState): { items: GateItem[]; complete: 
       id: 'trail',
       label: `Read archivist_${part} this run of the trail`,
       done: state.loreSeen.includes(`lore_archivist_${part}`),
-    },
-    {
-      id: 'ghost',
-      label: 'Solve the ghost frequency this iteration',
-      done: state.ghostSolvedIter === state.currentIteration,
     },
     ...picked.map(id => {
       const game = MINIGAMES.find(g => g.id === id);

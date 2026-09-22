@@ -1,4 +1,11 @@
-import { DirectoryNode, FileNode, FileType, FileExtension, PackageContent } from '../types';
+import {
+  DirectoryNode,
+  FileNode,
+  FileType,
+  FileExtension,
+  PackageContent,
+  BoostMultiplier,
+} from '../types';
 import { MINIGAMES } from './gate';
 
 let seedCounter = 1;
@@ -77,7 +84,7 @@ const generatePackageContent = (): PackageContent => {
   const roll = random();
 
   if (roll > 0.9) {
-    const multiplier = randInt(2, 5);
+    const multiplier = randInt(2, 5) as BoostMultiplier;
     const duration = randInt(1, 5);
     return { type: 'BOOST', value: duration * 1000, multiplier };
   } else if (roll > 0.6) {
@@ -224,8 +231,7 @@ export const generateFileSystem = (
   let currentDir = root;
   const path: DirectoryNode[] = [root];
 
-  if (forceRoot) {
-  } else {
+  if (!forceRoot) {
     for (let d = 0; d < targetDepth; d++) {
       const nextDirName = `${randChoice(FOLDER_NAMES)}_${randInt(1, 99)}`;
       const nextDir: DirectoryNode = {

@@ -111,9 +111,6 @@ export const loadGame = (mode: SaveMode): GameState | null => {
       if (!parsed.arcadeWins) {
         parsed.arcadeWins = {};
       }
-      if (parsed.ghostSolvedIter === undefined) {
-        parsed.ghostSolvedIter = 0;
-      }
       if (parsed.passes === undefined) {
         parsed.passes = 0;
       }
@@ -128,6 +125,12 @@ export const loadGame = (mode: SaveMode): GameState | null => {
       }
       if (!parsed.exploredDirIds) {
         parsed.exploredDirIds = [];
+      }
+      if (!parsed.triangulated) {
+        parsed.triangulated = {};
+      }
+      if (!parsed.locatedMinigames) {
+        parsed.locatedMinigames = [];
       }
 
       if (mode === 'NORMAL') {

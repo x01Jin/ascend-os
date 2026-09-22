@@ -6,12 +6,6 @@ export interface SecretDef {
 
 export const SECRETS: SecretDef[] = [
   {
-    id: 'ghost',
-    title: 'Ghost Frequency',
-    instructions:
-      'A ghost_ file broadcasts a 4-digit password each iteration and names the folder where a dead_drop.zip vault sleeps. The password opens the vault; inside is a minigame pass that clears one minigame of your choice.',
-  },
-  {
     id: 'trail',
     title: 'Archivist Cache',
     instructions:
@@ -39,6 +33,11 @@ export const SECRETS: SecretDef[] = [
     title: 'Respect the Ferry',
     instructions: 'Right-click ascend.exe in Explorer and open Properties.',
   },
+  {
+    id: 'refresh',
+    title: 'Placebo Button',
+    instructions: 'Hit Refresh on the desktop 5 times within 10 seconds. What is the point though?',
+  },
 ];
 
 export const SECRET_TOTAL = SECRETS.length;
@@ -47,11 +46,11 @@ export const SECRETS_ZIP_TEXT = `secrets.zip — ARCHIVIST INSTRUCTIONS
 =====================================
 You earned this by finishing the checklist. What remains is hidden, not gated.
 
-1. GHOST FREQUENCY — a ghost_ file broadcasts a 4-digit password each iteration and names the folder where a dead_drop.zip vault sleeps. The password opens the vault. Inside is a minigame pass: it clears one minigame of your choice from inside that game's window.
-2. ARCHIVIST CACHE — read archivist_1/2/3/4/5 in order (iterations 1-5). Each part names an exact folder: ghost file, vault, two terminals, buried cache. Part 5 names the buried cache folder. Open it.
-3. OFFERING — rename a folder to "archivist", mark it, TRACE inside it.
-4. CORE WORD — System Help listens for a 4-letter word.
-5. CRACKED EGG — rename any .txt to egg (it displays as egg.txt), open it, click 7 times. It pays data.
-6. RESPECT THE FERRY — ascend.exe has a Properties page. Read it.
+1. ARCHIVIST CACHE — read archivist_1/2/3/4/5 in order (iterations 1-5). Each part names an exact folder: ghost file, vault, two terminals, buried cache. Part 5 names the buried cache folder. Open it.
+2. OFFERING — rename a folder to "archivist", mark it, TRACE inside it.
+3. CORE WORD — System Help listens for a 4-letter word.
+4. CRACKED EGG — rename any .txt to egg (it displays as egg.txt), open it, click 7 times. It pays data.
+5. RESPECT THE FERRY — ascend.exe has a Properties page. Read it.
+6. PLACEBO BUTTON — Press desktop Refresh 5 times fast.
 
 Find all six. The letter waits at 100%.`;

@@ -4,18 +4,18 @@ Progress = achievements, secrets, lore. Weights: 70 / 20 / 10. The total caps at
 
 ## Achievements
 
-24 checks covering iterations, mining, tracing, packages, modules, tools, arcade, and secrets. Earning the first 23 grants `secrets.zip`; opening it earns the 24th.
+27 checks covering iterations, mining, tracing, packages, modules, tools, minigames, secrets, wallpaper, triangulation, and teleports. Earning the first 26 grants `secrets.zip`; opening it earns the 27th.
 
 ## Secrets
 
 6 hidden items, named only after discovery:
 
-1. **Ghost Frequency**: a `ghost_` file broadcasts a 4-digit password and names the folder holding a `dead_drop.zip` vault. The password opens the vault for a minigame pass.
-2. **Archivist Cache**: read `archivist_1` through `archivist_5` in order across iterations 1-5. Part 5 names the buried cache folder.
-3. **Offering**: rename a folder to `archivist`, mark it, TRACE inside it.
-4. **Core Word**: type `core` while System Help is open.
-5. **Cracked Egg**: rename any `.txt` file to `egg` (it displays as `egg.txt`), open it, click the egg 7 times. Pays 10-50 MB.
-6. **Respect the Ferry**: right-click `ascend.exe`, open Properties.
+1. **Archivist Cache**: read `archivist_1` through `archivist_5` in order across iterations 1-5. Part 5 names the buried cache folder.
+2. **Offering**: rename a folder to `archivist`, mark it, TRACE inside it.
+3. **Core Word**: type `core` while System Help is open.
+4. **Cracked Egg**: rename any `.txt` file to `egg` (it displays as `egg.txt`), open it, click the egg 7 times. Pays 10-50 MB.
+5. **Respect the Ferry**: right-click `ascend.exe`, open Properties.
+6. **Placebo Button**: run Refresh System on the desktop 5 times within 10 seconds.
 
 ## Lore
 

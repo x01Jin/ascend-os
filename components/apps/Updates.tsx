@@ -1,18 +1,20 @@
 import React, { useState } from 'react';
 import { Download, Zap, Eye, Clock, AlertTriangle } from 'lucide-react';
-import { GameState } from '../../types';
+import { GameState, BoostMultiplier } from '../../types';
 import {
   UPGRADE_COST_BASE,
   BOOST_COST_BASE_PER_SEC,
   AUTOMARK_COST_PER_UNIT,
   UPGRADE_COST_GROWTH,
   CLICK_UPGRADE_INCREMENT,
+  MAP_UNLOCK_COST,
+  RADAR_UNLOCK_COST,
 } from '../../constants';
 
 interface UpdatesProps {
   gameState: GameState;
   onPurchaseUpgrade: () => void;
-  onPurchaseBoost: (multiplier: number, seconds: number) => void;
+  onPurchaseBoost: (multiplier: BoostMultiplier, seconds: number) => void;
   onPurchaseAutoMark: (amount: number) => void;
   onUnlockTool: (tool: string) => void;
 }
@@ -21,15 +23,15 @@ const TOOLS = [
   {
     id: 'map',
     label: 'Explorer Map',
-    desc: 'Full folder chart with teleport. Unlocks at iteration 2.',
-    cost: 100 * 1024,
+    desc: 'Zoomable folder tree with level reveals and priced teleports. Unlocks at iteration 2.',
+    cost: MAP_UNLOCK_COST,
     minIter: 2,
   },
   {
     id: 'radar',
     label: 'Special-File Radar',
-    desc: 'Lists packages, modules and strange files with teleport. Unlocks at iteration 3.',
-    cost: 250 * 1024,
+    desc: 'Lists packages, modules and strange files with paid triangulation. Unlocks at iteration 3.',
+    cost: RADAR_UNLOCK_COST,
     minIter: 3,
   },
 ];
@@ -52,7 +54,7 @@ const Updates: React.FC<UpdatesProps> = ({
   onPurchaseAutoMark,
   onUnlockTool,
 }) => {
-  const [selectedMultiplier, setSelectedMultiplier] = useState(2);
+  const [selectedMultiplier, setSelectedMultiplier] = useState<BoostMultiplier>(2);
   const [autoMarkAmount, setAutoMarkAmount] = useState(5);
 
   const currentEfficiencyCost = Math.floor(
@@ -70,7 +72,7 @@ const Updates: React.FC<UpdatesProps> = ({
   const autoMarkCost = autoMarkAmount * AUTOMARK_COST_PER_UNIT;
   const canAffordAutoMark = gameState.dataKB >= autoMarkCost;
 
-  const getBankTime = (mult: number) => {
+  const getBankTime = (mult: BoostMultiplier) => {
     const ms = gameState.boostBank[mult] || 0;
     return (ms / 1000).toFixed(1);
   };
@@ -151,7 +153,7 @@ const Updates: React.FC<UpdatesProps> = ({
           </div>
 
           <div className="flex gap-2 mb-4">
-            {[2, 3, 4].map(m => (
+            {([2, 3, 4] as const).map(m => (
               <button
                 key={m}
                 onClick={() => setSelectedMultiplier(m)}

@@ -16,8 +16,10 @@ export enum FileExtension {
 export interface PackageContent {
   type: 'DATA' | 'AUTOMARK' | 'BOOST' | 'AUTOMINER_POWER' | 'AUTOMINER_SPEED';
   value: number;
-  multiplier?: number;
+  multiplier?: BoostMultiplier;
 }
+
+export type BoostMultiplier = 2 | 3 | 4 | 5;
 
 export type MarkKind = 'manual' | 'auto' | 'gate';
 
@@ -108,8 +110,8 @@ export interface GameState {
 
   efficiencyLevel: number;
 
-  boostBank: { 2: number; 3: number; 4: number; 5: number };
-  activeBoostMultiplier: number | null;
+  boostBank: Record<BoostMultiplier, number>;
+  activeBoostMultiplier: BoostMultiplier | null;
 
   autoMarkCount: number;
   isAutoMarkEnabled: boolean;
@@ -135,9 +137,10 @@ export interface GameState {
   arcadeWins: Record<string, number>;
   passes: number;
   fuelPaidIter: number;
-  ghostSolvedIter: number;
   revealedDepths: number[];
   exploredDirIds: string[];
+  triangulated: Record<string, 1 | 2 | 3>;
+  locatedMinigames: string[];
   unlockedTools: string[];
 }
 

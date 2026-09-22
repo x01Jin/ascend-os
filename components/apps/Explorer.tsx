@@ -157,10 +157,12 @@ const Explorer: React.FC<ExplorerProps> = ({
     if (history.length > 1) {
       const newHistory = [...history];
       newHistory.pop();
-      setCurrentDir(newHistory[newHistory.length - 1]);
+      const dir = newHistory[newHistory.length - 1]!;
+      setCurrentDir(dir);
       setHistory(newHistory);
       setSelectedId(null);
       setRenamingId(null);
+      onNavigateDir?.(dir);
     }
   };
 
@@ -169,6 +171,7 @@ const Explorer: React.FC<ExplorerProps> = ({
     setHistory([root]);
     setSelectedId(null);
     setRenamingId(null);
+    onNavigateDir?.(root);
   };
 
   const handleOpenItem = (child: FileSystemNode) => {
@@ -367,10 +370,7 @@ const Explorer: React.FC<ExplorerProps> = ({
                   onClick={e => {
                     e.stopPropagation();
                     setSelectedId(child.id);
-                    if (isRenaming) {
-                    } else {
-                      setRenamingId(null);
-                    }
+                    if (!isRenaming) setRenamingId(null);
                   }}
                   onDoubleClick={e => {
                     e.stopPropagation();

@@ -12,6 +12,7 @@ import {
   NotificationType,
   NodeModification,
   TeleportTarget,
+  BoostMultiplier,
 } from './types';
 import { generateFileSystem } from './services/generator';
 import {
@@ -35,6 +36,9 @@ import {
   MAP_UNLOCK_COST,
   RADAR_UNLOCK_COST,
   UPGRADE_COST_GROWTH,
+  isSpecialFile,
+  locateCostFor,
+  triangulationCostFor,
 } from './constants';
 import Taskbar from './components/Taskbar';
 import WindowFrame from './components/WindowFrame';
@@ -58,7 +62,8 @@ import Cartographer, { revealCostFor, teleportCostFor } from './components/apps/
 import Radar from './components/apps/Radar';
 import { MINIGAMES, fuelFeeKB, getGateStatus } from './services/gate';
 import ThankYouLetter from './components/system/ThankYouLetter';
-import { ACH_FOR_ZIP } from './services/achievements';
+import { ACH_FOR_ZIP, ACHIEVEMENTS } from './services/achievements';
+import { SECRETS } from './services/secrets';
 import { LORE_FRAGMENTS } from './services/lore';
 import { computeProgress, isZipEarned } from './services/progression';
 import { Terminal } from 'lucide-react';
@@ -94,11 +99,14 @@ const App: React.FC = () => {
   });
   const [saveMode, setSaveModeState] = useState<SaveMode>(initialSystem.mode);
   const [gameState, setGameState] = useState<GameState>(initialSystem.loadedState);
+  const gameStateRef = useRef(gameState);
   const [fileSystem, setFileSystem] = useState<DirectoryNode | null>(initialSystem.finalFS);
   const offlineYieldRef = useRef(initialSystem.offlineYieldKB);
 
   const [isBooting, setIsBooting] = useState(true);
   const [isAscending, setIsAscending] = useState(false);
+  const [desktopNonce, setDesktopNonce] = useState(0);
+  const refreshTimes = useRef<number[]>([]);
 
   const [windows, setWindows] = useState<WindowState[]>([]);
   const [activeWindowId, setActiveWindowId] = useState<string | null>(null);
@@ -192,6 +200,10 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    gameStateRef.current = gameState;
+  });
+
+  useEffect(() => {
     if (!isBooting && !isAscending) {
       saveGame(gameState, saveMode);
     }
@@ -199,7 +211,11 @@ const App: React.FC = () => {
 
   const addNotification = useCallback((title: string, message: string, type: NotificationType) => {
     const id = Date.now().toString() + Math.random();
-    setNotifications(prev => [...prev, { id, title, message, type }]);
+    setNotifications(prev =>
+      prev.some(n => n.title === title && n.message === message)
+        ? prev
+        : [...prev.slice(-5), { id, title, message, type }]
+    );
 
     setTimeout(() => {
       setNotifications(prev => prev.filter(n => n.id !== id));
@@ -223,45 +239,55 @@ const App: React.FC = () => {
     }
   }, [isBooting, addNotification]);
 
-  const unlockAchievement = useCallback((id: string) => {
-    setGameState(prev => {
-      if (prev.achievements[id] !== undefined) return prev;
-      return { ...prev, achievements: { ...prev.achievements, [id]: Date.now() } };
-    });
-  }, []);
+  const unlockAchievement = useCallback(
+    (id: string) => {
+      if (gameStateRef.current.achievements[id] !== undefined) return;
+      const def = ACHIEVEMENTS.find(a => a.id === id);
+      setGameState(prev => {
+        if (prev.achievements[id] !== undefined) return prev;
+        return { ...prev, achievements: { ...prev.achievements, [id]: Date.now() } };
+      });
+      addNotification(
+        'TASK COMPLETE',
+        def ? `${def.title}: ${def.description}` : id,
+        NotificationType.SUCCESS
+      );
+    },
+    [addNotification]
+  );
 
   const discoverSecret = useCallback(
     (id: string) => {
-      let isNew = false;
+      if (gameStateRef.current.secretsFound.includes(id)) return false;
+      const def = SECRETS.find(s => s.id === id);
       setGameState(prev => {
         if (prev.secretsFound.includes(id)) return prev;
-        isNew = true;
-        return { ...prev, secretsFound: [...prev.secretsFound, id] };
+        const secretsFound = [...prev.secretsFound, id];
+        const achievements =
+          secretsFound.length >= 3 && prev.achievements['egg_hunter'] === undefined
+            ? { ...prev.achievements, egg_hunter: Date.now() }
+            : prev.achievements;
+        return { ...prev, secretsFound, achievements };
       });
-      if (id === 'ghost') unlockAchievement('ghost');
+      addNotification('SECRET FOUND', def ? def.title : id, NotificationType.SUCCESS);
       if (id === 'trail') unlockAchievement('trail');
       if (id === 'offering') unlockAchievement('offering');
-      return isNew;
+      return true;
     },
-    [unlockAchievement]
+    [unlockAchievement, addNotification]
   );
 
-  const seeLore = useCallback((id: string) => {
-    if (!LORE_FRAGMENTS.some(l => l.id === id)) return;
-    setGameState(prev =>
-      prev.loreSeen.includes(id) ? prev : { ...prev, loreSeen: [...prev.loreSeen, id] }
-    );
-  }, []);
-
-  const checkEggHunter = useCallback(() => {
-    setGameState(prev => {
-      const eggs = ['core', 'idol', 'properties'].filter(e => prev.secretsFound.includes(e));
-      if (eggs.length >= 3 && prev.achievements['egg_hunter'] === undefined) {
-        return { ...prev, achievements: { ...prev.achievements, egg_hunter: Date.now() } };
-      }
-      return prev;
-    });
-  }, []);
+  const seeLore = useCallback(
+    (id: string) => {
+      const fragment = LORE_FRAGMENTS.find(l => l.id === id);
+      if (!fragment || gameStateRef.current.loreSeen.includes(id)) return;
+      setGameState(prev =>
+        prev.loreSeen.includes(id) ? prev : { ...prev, loreSeen: [...prev.loreSeen, id] }
+      );
+      addNotification('LORE FRAGMENT', fragment.title, NotificationType.INFO);
+    },
+    [addNotification]
+  );
 
   const progress = computeProgress(
     Object.keys(gameState.achievements).length,
@@ -282,15 +308,17 @@ const App: React.FC = () => {
   }, []);
 
   const handleRefreshSystem = () => {
-    setWindows([]);
-    setCascadeCount(0);
-    setIsBooting(true);
+    setContextMenu(prev => ({ ...prev, isOpen: false }));
+    setDesktopNonce(n => n + 1);
+    const now = Date.now();
+    refreshTimes.current = [...refreshTimes.current.filter(t => now - t < 10000), now];
+    if (refreshTimes.current.length >= 5) discoverSecret('refresh');
   };
 
   const handleDesktopContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     handleContextMenu(e.clientX, e.clientY, [
-      { label: 'Refresh System', action: handleRefreshSystem },
+      { label: 'Refresh', action: handleRefreshSystem },
       { separator: true, label: '' },
       { label: 'Personalize', action: () => openWindow(AppId.PERSONALIZE) },
       { label: 'About Ascend OS', action: () => openWindow(AppId.HELP) },
@@ -408,6 +436,15 @@ const App: React.FC = () => {
           break;
         case AppId.CARTOGRAPHER:
           title = 'Explorer Map';
+          break;
+        case AppId.RADAR:
+          title = 'Radar';
+          break;
+        case AppId.MINIGAME:
+          title = 'Minigame';
+          break;
+        case AppId.EGG:
+          title = 'Egg';
           break;
         case AppId.ACHIEVEMENTS:
           title = 'Achievements';
@@ -620,6 +657,7 @@ const App: React.FC = () => {
       openWindow(AppId.EXPLORER);
       setTeleportTarget({ dirId, nonce: Date.now(), windowId: null });
     }
+    unlockAchievement('ferry_hop');
   };
 
   const handleUnlockTool = (tool: string) => {
@@ -677,7 +715,7 @@ const App: React.FC = () => {
     }
   };
 
-  const handlePurchaseBoost = (multiplier: number, seconds: number) => {
+  const handlePurchaseBoost = (multiplier: BoostMultiplier, seconds: number) => {
     const scale = Math.pow(2, multiplier - 2);
     const cost = seconds * BOOST_COST_BASE_PER_SEC * scale;
 
@@ -712,6 +750,38 @@ const App: React.FC = () => {
     setGameState(prev => ({ ...prev, autoMarkCount: Math.max(0, prev.autoMarkCount - 1) }));
   };
 
+  const handleTriangulate = (fileId: string, tier: 1 | 2 | 3) => {
+    if (!fileSystem || (gameState.triangulated[fileId] ?? 0) >= tier) return;
+    const target = findNodeById(fileSystem, fileId);
+    if (!target || target.type === FileType.FOLDER) return;
+    const cost = triangulationCostFor(tier, gameState.currentIteration, isSpecialFile(target));
+    if (gameState.dataKB < cost) return;
+    if (tier === 3 && isSpecialFile(target)) unlockAchievement('dead_on');
+    setGameState(prev =>
+      (prev.triangulated[fileId] ?? 0) >= tier || prev.dataKB < cost
+        ? prev
+        : {
+            ...prev,
+            dataKB: prev.dataKB - cost,
+            triangulated: { ...prev.triangulated, [fileId]: tier },
+          }
+    );
+  };
+  const handleLocateMinigame = (gameId: string) => {
+    if (!fileSystem || gameState.locatedMinigames.includes(gameId)) return;
+    if (!findNodeById(fileSystem, `${gameId}_${gameState.currentIteration}`)) return;
+    const cost = locateCostFor(gameState.currentIteration);
+    if (gameState.dataKB < cost) return;
+    setGameState(prev =>
+      prev.locatedMinigames.includes(gameId) || prev.dataKB < cost
+        ? prev
+        : {
+            ...prev,
+            dataKB: prev.dataKB - cost,
+            locatedMinigames: [...prev.locatedMinigames, gameId],
+          }
+    );
+  };
   const handleRevealLevel = (level: number) => {
     if (!fileSystem || gameState.revealedDepths.includes(level)) return;
     const cost = revealCostFor(fileSystem, level, gameState.exploredDirIds);
@@ -727,7 +797,7 @@ const App: React.FC = () => {
     );
   };
 
-  const handleToggleBoost = (multiplier: number) => {
+  const handleToggleBoost = (multiplier: BoostMultiplier) => {
     setGameState(prev => {
       if (prev.activeBoostMultiplier === multiplier) {
         return { ...prev, activeBoostMultiplier: null };
@@ -742,6 +812,7 @@ const App: React.FC = () => {
 
   const handleSetWallpaper = (dataUrl: string | undefined) => {
     setGameState(prev => ({ ...prev, wallpaper: dataUrl }));
+    if (dataUrl) unlockAchievement('decorator');
     addNotification(
       'DISPLAY SETTINGS',
       dataUrl ? 'Wallpaper updated successfully.' : 'Wallpaper reset to default.',
@@ -920,6 +991,8 @@ const App: React.FC = () => {
         modifiedNodes: {},
         revealedDepths: [...INITIAL_GAME_STATE.revealedDepths],
         exploredDirIds: [],
+        triangulated: {},
+        locatedMinigames: [],
         stats: { ...prev.stats, ascensions: prev.stats.ascensions + 1 },
       };
 
@@ -1049,25 +1122,14 @@ const App: React.FC = () => {
   );
 
   const handleUnlockedFile = (file: FileNode) => {
-    if (file.secretId) {
-      discoverSecret(file.secretId);
-      addNotification(
-        'SECRET FOUND',
-        'The locked cache opens. Ghost frequency resolved.',
-        NotificationType.SUCCESS
-      );
-    }
+    if (file.secretId === 'ghost') unlockAchievement('ghost');
     if (file.loreId) seeLore(file.loreId);
     setWindows(prev =>
       prev.filter(w => !(w.appId === AppId.TEXT_VIEWER && (w.data as FileNode)?.id === file.id))
     );
     const isVault = file.name.endsWith('.zip') || file.id.startsWith('vault_');
     if (isVault) {
-      setGameState(prev => ({
-        ...prev,
-        passes: prev.passes + 1,
-        ghostSolvedIter: prev.currentIteration,
-      }));
+      setGameState(prev => ({ ...prev, passes: prev.passes + 1 }));
     }
     addNotification(
       isVault ? 'VAULT DECRYPTED' : 'CACHE DECRYPTED',
@@ -1089,10 +1151,8 @@ const App: React.FC = () => {
     const seen = gameState.loreSeen;
     const order = [1, 2, 3, 4, 5].map(n => seen.indexOf(`lore_archivist_${n}`));
     if (order.every(i => i !== -1) && order.every((v, i, a) => i === 0 || a[i - 1] < v)) {
-      const isNew = discoverSecret('trail');
-      if (isNew) {
+      if (discoverSecret('trail')) {
         seeLore('lore_end');
-        addNotification('SECRET FOUND', "Archivist's trail complete.", NotificationType.SUCCESS);
       }
     } else {
       addNotification(
@@ -1104,14 +1164,8 @@ const App: React.FC = () => {
   };
 
   const handleOffering = () => {
-    const isNew = discoverSecret('offering');
-    if (isNew) {
+    if (discoverSecret('offering')) {
       seeLore('lore_offering');
-      addNotification(
-        'SECRET FOUND',
-        'The tracer accepts your offering.',
-        NotificationType.SUCCESS
-      );
     } else {
       addNotification('OFFERING', 'Already accepted.', NotificationType.INFO);
     }
@@ -1119,28 +1173,18 @@ const App: React.FC = () => {
 
   const handleProperties = (node: { id: string; name: string }) => {
     if (node.name.toLowerCase() === 'ascend' || node.id.startsWith('ascend_exe_')) {
-      const isNew = discoverSecret('properties');
-      if (isNew) {
-        addNotification('SECRET FOUND', 'You read the ferry paperwork.', NotificationType.SUCCESS);
-      }
-      checkEggHunter();
+      discoverSecret('properties');
     }
   };
 
   const handleOpenCore = () => {
-    const isNew = discoverSecret('core');
-    if (isNew)
-      addNotification('SECRET FOUND', 'Four letters open a door.', NotificationType.SUCCESS);
-    checkEggHunter();
+    discoverSecret('core');
     openWindow(AppId.CORE_SETTINGS);
   };
 
   const handleEggCrack = (rewardKB: number) => {
     setGameState(prev => ({ ...prev, dataKB: prev.dataKB + rewardKB }));
-    const isNew = discoverSecret('idol');
-    if (isNew)
-      addNotification('SECRET FOUND', 'The egg cracks. Yolk is data.', NotificationType.SUCCESS);
-    checkEggHunter();
+    discoverSecret('idol');
   };
 
   const handleMinigameWin = (gameId: string) => {
@@ -1237,7 +1281,7 @@ const App: React.FC = () => {
       <div className="absolute inset-0 z-0">
         {(gameState.shortcuts || []).map(sc => (
           <DesktopIcon
-            key={sc.id}
+            key={`${sc.id}_${desktopNonce}`}
             shortcut={sc}
             onOpen={openWindow}
             onMove={handleMoveShortcut}
@@ -1313,7 +1357,13 @@ const App: React.FC = () => {
             />
           )}
           {win.appId === AppId.RADAR && fileSystem && (
-            <Radar root={fileSystem} onTeleport={handleTeleport} />
+            <Radar
+              root={fileSystem}
+              iteration={gameState.currentIteration}
+              dataKB={gameState.dataKB}
+              triangulated={gameState.triangulated}
+              onTriangulate={handleTriangulate}
+            />
           )}
           {win.appId === AppId.CLICKER && (
             <Clicker
@@ -1369,7 +1419,8 @@ const App: React.FC = () => {
               gameState={gameState}
               root={fileSystem}
               dataKB={gameState.dataKB}
-              onSpendData={handleSpendData}
+              locatedMinigames={gameState.locatedMinigames}
+              onLocate={handleLocateMinigame}
               onShowLocation={file => openWindow(AppId.TEXT_VIEWER, file)}
               onPayFuel={handlePayFuel}
               onConfirm={handleAscendStart}

@@ -1,4 +1,4 @@
-import { AppId, GameState } from './types';
+import { AppId, FileNode, FileType, GameState } from './types';
 
 export const APP_NAME = 'Ascend OS';
 export const SCAN_COST = 10 * 1024;
@@ -9,6 +9,19 @@ export const CLICK_UPGRADE_INCREMENT = 5;
 export const LOCATE_COST_BASE = 5 * 1024;
 export const locateCostFor = (iteration: number): number =>
   LOCATE_COST_BASE + (Math.max(1, iteration) - 1) * (2 * 1024);
+export const TRIANGULATION_BASE_KB = [0, 5 * 1024, 10 * 1024, 20 * 1024];
+export const isSpecialFile = (file: FileNode): boolean =>
+  file.type !== FileType.PACKAGE && file.type !== FileType.MODULE;
+export const triangulationCostFor = (
+  tier: 1 | 2 | 3,
+  iteration: number,
+  special: boolean
+): number => {
+  const base = TRIANGULATION_BASE_KB[tier]!;
+  const slope = base / 5;
+  const mult = special ? tier : 1;
+  return (base + (Math.max(1, iteration) - 1) * slope) * mult;
+};
 
 export const UPGRADE_COST_BASE = 10 * 1024;
 export const UPGRADE_COST_GROWTH = 1.35;
@@ -76,8 +89,9 @@ export const INITIAL_GAME_STATE: GameState = {
   arcadeWins: {},
   passes: 0,
   fuelPaidIter: 0,
-  ghostSolvedIter: 0,
   revealedDepths: [0, 1],
   exploredDirIds: [],
+  triangulated: {},
+  locatedMinigames: [],
   unlockedTools: [],
 };

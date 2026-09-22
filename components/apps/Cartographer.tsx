@@ -141,7 +141,7 @@ const Cartographer: React.FC<CartographerProps> = ({
     return deepest;
   }, [root]);
 
-  const { nodes, edges, worldW, worldH } = useMemo(() => {
+  const { nodes, edges, worldW, worldH, byId, parents } = useMemo(() => {
     const placed: PlacedNode[] = [];
     const drawn: Edge[] = [];
     const index = buildTeleportIndex(root);
@@ -175,11 +175,14 @@ const Cartographer: React.FC<CartographerProps> = ({
       return x;
     };
     assign(root, 0, '');
+    const nodeById = new Map(placed.map(n => [n.node.id, n] as const));
     return {
       nodes: placed,
       edges: drawn,
       worldW: Math.max(slot * PITCH_X + PAD * 2, 800),
       worldH: (deepestLevel + 1) * ROW_H + PAD * 2,
+      byId: nodeById,
+      parents: index.parent,
     };
   }, [root, revealed, exploredDirIds, explorerDirId, deepestLevel]);
 
@@ -221,6 +224,24 @@ const Cartographer: React.FC<CartographerProps> = ({
     return () => el.removeEventListener('wheel', onWheel);
   }, []);
 
+  const hereId = explorerDirId ?? root.id;
+
+  const centerOnCurrent = () => {
+    let id: string | null | undefined = hereId;
+    while (id && !byId.has(id)) id = parents.get(id) ?? null;
+    const target = (id && byId.get(id)) ?? byId.get(root.id);
+    if (!target) return;
+    setSelectedId(target.node.id);
+    const el = viewportRef.current;
+    const cx = (el?.clientWidth ?? 0) / 2;
+    const cy = (el?.clientHeight ?? 0) / 2;
+    setView(v => ({
+      k: v.k,
+      x: cx - target.x * v.k,
+      y: cy - (target.y + NODE_H / 2) * v.k,
+    }));
+  };
+
   const zoomBy = (factor: number) => {
     const el = viewportRef.current;
     const cx = (el?.clientWidth ?? 0) / 2;
@@ -248,6 +269,13 @@ const Cartographer: React.FC<CartographerProps> = ({
         <span className="shrink-0">folder tree. dbl-click teleports for ◈.</span>
         <span className="shrink-0 text-cyan-300">◈ {autoMarkCount}</span>
         <span className="flex items-center gap-1 ml-auto shrink-0">
+          <button
+            onClick={centerOnCurrent}
+            title="Pan to the Explorer's current folder"
+            className="border border-gray-700 rounded px-1.5 hover:bg-gray-800 text-gray-300"
+          >
+            ◎
+          </button>
           <button
             onClick={() => zoomBy(1.25)}
             className="border border-gray-700 rounded px-1.5 hover:bg-gray-800 text-gray-300"
@@ -311,6 +339,7 @@ const Cartographer: React.FC<CartographerProps> = ({
           {nodes.map(placed => {
             const { node, x, y, path, sealedCount, tripCost } = placed;
             const selected = selectedId === node.id;
+            const here = node.id === hereId;
             const mark =
               node.markKind === 'gate' ? 'text-purple-400' : node.isMarked ? 'text-yellow-400' : '';
             return (
@@ -320,12 +349,14 @@ const Cartographer: React.FC<CartographerProps> = ({
                 onClick={guarded(() => setSelectedId(node.id))}
                 onDoubleClick={guarded(() => onTeleport(node.id))}
                 className={`absolute rounded border overflow-hidden cursor-pointer hover:brightness-150 ${
-                  selected
-                    ? 'border-cyan-400 bg-cyan-950/40'
-                    : node.isScanned
-                      ? 'border-green-700 bg-green-950/40'
-                      : 'border-gray-700 bg-gray-900/90'
-                }`}
+                  here
+                    ? 'border-white bg-gray-900/90 shadow-[0_0_14px_rgba(255,255,255,0.6)]'
+                    : selected
+                      ? 'border-cyan-400 bg-cyan-950/40'
+                      : node.isScanned
+                        ? 'border-green-700 bg-green-950/40'
+                        : 'border-gray-700 bg-gray-900/90'
+                } ${here && selected ? 'ring-2 ring-cyan-400' : ''}`}
                 style={{ left: x - NODE_W / 2, top: y, width: NODE_W, height: NODE_H }}
               >
                 <div className="p-1.5 font-mono leading-tight">

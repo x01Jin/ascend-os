@@ -3,7 +3,6 @@ import {
   Box,
   AppWindow,
   Folder,
-  MousePointer2,
   HelpCircle,
   Cpu,
   Download,
@@ -133,9 +132,6 @@ const Taskbar: React.FC<TaskbarProps> = ({
                 onContextMenu={e => handleStartItemContextMenu(e, item)}
               >
                 {item.icon === 'Folder' && <Folder size={18} className="text-yellow-400" />}
-                {item.icon === 'MousePointer2' && (
-                  <MousePointer2 size={18} className="text-blue-400" />
-                )}
                 {item.icon === 'Cpu' && <Cpu size={18} className="text-cyan-400" />}
                 {item.icon === 'Download' && <Download size={18} className="text-purple-400" />}
                 {item.icon === 'HelpCircle' && <HelpCircle size={18} className="text-green-400" />}
@@ -176,7 +172,11 @@ const Taskbar: React.FC<TaskbarProps> = ({
           {windows.map(win => (
             <button
               key={win.id}
-              onClick={() => onFocusWindow(win.id)}
+              onClick={() =>
+                activeWindowId === win.id && !win.isMinimized
+                  ? onMinimize(win.id)
+                  : onFocusWindow(win.id)
+              }
               onContextMenu={e => handleWindowContextMenu(e, win)}
               className={`
                 flex items-center gap-2 px-3 py-1.5 rounded text-xs max-w-[150px] truncate transition-all

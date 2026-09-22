@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { DirectoryNode, FileExtension, FileNode, FileType, GameState } from '../../types';
 import { MINIGAMES, fuelFeeKB, getGateStatus } from '../../services/gate';
@@ -9,7 +9,8 @@ interface AscensionGateProps {
   gameState: GameState;
   root: DirectoryNode | null;
   dataKB: number;
-  onSpendData: (amount: number) => void;
+  locatedMinigames: string[];
+  onLocate: (gameId: string) => void;
   onShowLocation: (file: FileNode) => void;
   onPayFuel: () => void;
   onConfirm: () => void;
@@ -20,7 +21,8 @@ const AscensionGate: React.FC<AscensionGateProps> = ({
   gameState,
   root,
   dataKB,
-  onSpendData,
+  locatedMinigames,
+  onLocate,
   onShowLocation,
   onPayFuel,
   onConfirm,
@@ -32,7 +34,6 @@ const AscensionGate: React.FC<AscensionGateProps> = ({
   const fuelPaid = gameState.fuelPaidIter === iteration;
   const canPay = !fuelPaid && dataKB >= fee;
   const locateCost = locateCostFor(iteration);
-  const [revealed, setRevealed] = useState<Record<string, number>>({});
 
   const exeDirId = (gameId: string): string | null => {
     if (!root) return null;
@@ -42,10 +43,8 @@ const AscensionGate: React.FC<AscensionGateProps> = ({
 
   const handleLocate = (gameId: string) => {
     if (dataKB < locateCost) return;
-    const dirId = exeDirId(gameId);
-    if (!dirId) return;
-    onSpendData(locateCost);
-    setRevealed(prev => ({ ...prev, [gameId]: iteration }));
+    if (!exeDirId(gameId)) return;
+    onLocate(gameId);
   };
 
   const handleShow = (gameId: string) => {
@@ -89,18 +88,18 @@ const AscensionGate: React.FC<AscensionGateProps> = ({
               {gameId && !item.done && (
                 <button
                   onClick={() =>
-                    revealed[gameId] === iteration ? handleShow(gameId) : handleLocate(gameId)
+                    locatedMinigames.includes(gameId) ? handleShow(gameId) : handleLocate(gameId)
                   }
-                  disabled={revealed[gameId] !== iteration && (dataKB < locateCost || !root)}
+                  disabled={!locatedMinigames.includes(gameId) && (dataKB < locateCost || !root)}
                   className={`px-3 py-1 rounded text-xs font-bold shrink-0 ${
-                    revealed[gameId] === iteration
+                    locatedMinigames.includes(gameId)
                       ? 'border border-cyan-700 text-cyan-300 hover:bg-cyan-950'
                       : dataKB >= locateCost && root
                         ? 'bg-purple-600 hover:bg-purple-500 text-white'
                         : 'bg-gray-800 text-gray-600 cursor-not-allowed'
                   }`}
                 >
-                  {revealed[gameId] === iteration
+                  {locatedMinigames.includes(gameId)
                     ? 'SHOW FILE'
                     : `LOCATE ${(locateCost / 1024).toFixed(0)} MB`}
                 </button>

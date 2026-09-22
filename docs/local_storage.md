@@ -18,10 +18,10 @@ Upgrades and inventory: `efficiencyLevel`, `autoMinerData`, `autoMinerInterval`,
 
 File system: `consumedIds` (opened packages and modules, blocks reload farming), `modifiedNodes` (renames, marks, traces).
 
-Progression: `achievements`, `secretsFound`, `loreSeen`, `secretsZipSeen`, `hasSeenThankYou`, `stats`, `arcadeWins`, `passes`, `fuelPaidIter`, `ghostSolvedIter`, `unlockedTools`, `revealedDepths` (map fog-of-war), `exploredDirIds` (visited folders, discounts map reveals).
+Progression: `achievements`, `secretsFound`, `loreSeen`, `secretsZipSeen`, `hasSeenThankYou`, `stats`, `arcadeWins`, `passes`, `fuelPaidIter`, `unlockedTools`, `revealedDepths` (map fog-of-war), `exploredDirIds` (visited folders, discounts map reveals), `triangulated` (radar tiers bought per file, cleared each ascension), `locatedMinigames` (gate minigame locations bought per iteration, cleared each ascension).
 
 Flags: `isDevModeEnabled`, `isAscendRootEnabled`. Normal-mode loads force both off.
 
 ## Ascension reset
 
-Keeps currency, upgrades, inventory, desktop, seed, and progression (including `arcadeWins`, `passes`, `fuelPaidIter`, `ghostSolvedIter`, and tool unlocks). Clears `modifiedNodes` and `consumedIds`, resets map `revealedDepths` to root + depth 1 and clears `exploredDirIds`, nulls `activeBoostMultiplier` while banked time stays. The fuel-paid flag and cabinet wins apply per iteration, so a fresh iteration starts unpaid and unwon.
+Keeps currency, upgrades, inventory, desktop, seed, and progression (including `arcadeWins`, `passes`, `fuelPaidIter`, and tool unlocks). Clears `modifiedNodes` and `consumedIds`, resets map `revealedDepths` to root + depth 1 and clears `exploredDirIds`, nulls `activeBoostMultiplier` while banked time stays. The fuel-paid flag and cabinet wins apply per iteration, so a fresh iteration starts unpaid and unwon.

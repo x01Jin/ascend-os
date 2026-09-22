@@ -6,7 +6,6 @@ interface ConfirmationDialogProps {
   title: string;
   message: string;
   confirmLabel?: string;
-  cancelLabel?: string;
   isDanger?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -17,7 +16,6 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
   title,
   message,
   confirmLabel = 'Confirm',
-  cancelLabel = 'Cancel',
   isDanger = false,
   onConfirm,
   onCancel,
@@ -39,7 +37,7 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
             onClick={onCancel}
             className="px-4 py-2 rounded text-sm font-medium text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
           >
-            {cancelLabel}
+            Cancel{' '}
           </button>
           <button
             onClick={onConfirm}
