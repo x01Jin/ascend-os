@@ -1,5 +1,22 @@
-# Logs
-logs
+# dependencies
+node_modules/
+yarn-error.log
+
+# build output
+dist/
+dist-ssr/
+*.tsbuildinfo
+
+# env and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+
+# logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -7,23 +24,30 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
+# coverage
+coverage/
+.nyc_output/
 
-# Editor directories and files
+# archives
+*.tgz
+*.tar.gz
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# editors
 .vscode/*
 !.vscode/extensions.json
-.idea
-.DS_Store
+.idea/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
 
-# extras
+# local tooling and notes
 changelogs/
 references/
 .codegraph/

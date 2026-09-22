@@ -1,7 +1,7 @@
 # Ascend OS
 
 <div align="center">
-  <p><strong>Ascend OS is an experimental incremental exploration game that lets you tinker with a desktop environment as you mine Data, trace signals, and find the way to ascend on a procedurally generated file explorer.</strong></p>
+  <p><strong>Ascend OS is an incremental exploration game in a fake desktop. Mine Data, trace signals through a generated file system, and run ascend.exe.</strong></p>
 
   <p>
     <a href="https://x01jin.github.io/ascend-os/">
@@ -18,16 +18,16 @@
 
 ## Overview
 
-You are dropped into a procedurally generated operating system. Your goal is to find the way to ascend hidden deep within the directory structure.
+Find `ascend.exe` deep in a procedurally generated file system, clear the Ascension Gate, and ascend. Each iteration regenerates the tree from the same seed while upgrades and progression carry over.
 
 ## Documentation
 
-See [Documentation Index](docs/mechanics.md) for detailed logic.
+See [Documentation index](docs/mechanics.md).
 
 ## Tech Stack
 
 - React 19
 - TypeScript
-- Tailwind CSS via CDN
+- Tailwind CSS v4 via @tailwindcss/vite
 - Lucide React Icons
 - Vite

@@ -1,69 +1,33 @@
-# Local Storage & Persistence
+# Local storage and persistence
 
-Ascend OS uses the browser's `localStorage` to maintain game state between sessions. This ensures that progress is saved if the user closes the tab or refreshes the page.
+`localStorage` holds the game state as one JSON object per save slot, plus a separate wallpaper key.
 
-## Dual Save System
+## Dual saves
 
-To allow for experimentation and development without corrupting legitimate gameplay, Ascend OS uses two distinct save slots:
+- **Normal**: `ascend_game_state_v2`. Standard play.
+- **Dev**: `ascend_dev_state_v1`. Any developer override switches here.
+- Mode flag: `ascend_save_mode`. Switching reboots into the other slot.
+- Wallpaper: `ascend_wallpaper_v1`. Stored apart from the main slot so large images cannot crowd out progress; export omits it.
+- Backups: `<slot>_backup` before imports and seed changes; `<slot>_corrupt_<timestamp>` quarantine copies of rejected saves (max 3).
 
-1. **Normal Mode**:
-   - Key: `ascend_game_state_v2`
-   - Description: The standard gameplay state. Achievements, high scores, and standard progression are tracked here.
+Legacy `ascend_game_state_v1` loads as a fallback for the Normal slot and is left in place; only Factory Reset removes it.
 
-2. **Developer Mode**:
-   - Key: `ascend_dev_state_v1`
-   - Description: A sandbox state. Activated automatically when any Developer Override (e.g., Infinite Data) is enabled.
+## Stored fields
 
-The system tracks which mode is active via `ascend_save_mode`. Switching modes causes a system reboot to load the appropriate state.
+Core: `currentIteration`, `highScore`, `dataKB`, `runSeed`, `shortcuts`.
 
-## Persisted Data Structure
+Upgrades and inventory: `efficiencyLevel`, `autoMinerData`, `autoMinerInterval` (clamped to 300 ms minimum), `lastTickAt` (ms timestamp for 50% offline yield, capped at 8h), `autoMarkCount`, `isAutoMarkEnabled`, `boostBank` (ms per x2-x5 multiplier), `activeBoostMultiplier`.
 
-The entire game state is serialized into a single JSON object. Below is a breakdown of what is stored:
+File system: `consumedIds` (opened packages and modules, blocks reload farming), `modifiedNodes` (renames, marks, traces).
 
-### Core Progression
+Progression: `achievements`, `secretsFound`, `loreSeen`, `secretsZipSeen`, `hasSeenThankYou`, `stats`, `arcadeWins`, `passes` (cap 3), `fuelPaidIter`, `unlockedFileIds` (vault and locked files already decrypted, one grant each), `trailProof` (layers whose archivist file was opened this iteration), `unlockedTools`, `revealedDepths` (map fog-of-war), `exploredDirIds` (visited folders, discounts map reveals), `triangulated` (radar tiers bought per file, cleared each ascension), `locatedMinigames` (gate minigame locations bought per iteration, cleared each ascension), `locatedTrail` (gate trail locations bought, keyed by layer), `unscrambledTrail` (trail word puzzles solved, keyed by layer).
 
-- `currentIteration`: The current level/depth of the system.
-- `highScore`: The highest iteration reached.
-- `dataKB`: Current currency (Data).
-- `runSeed`: A unique seed generated at the start of a save file. This ensures that if you refresh the page on Iteration 5, the file system generates exactly the same way every time.
+Flags: `isDevModeEnabled`, `isAscendRootEnabled`. Normal-mode loads force both off.
 
-### Upgrades & Inventory
+## Save behavior
 
-- `efficiencyLevel`: Current level of the manual mining upgrade.
-- `autoMinerData`: Power level of the Auto-Miner (KB/tick).
-- `autoMinerInterval`: Speed of the Auto-Miner (ms).
-- `autoMarkCount`: Number of Auto-Markers currently in inventory.
-- `boostBank`: An object storing remaining milliseconds for each Overclock multiplier (x2, x3, x4, x5).
+Writes are debounced (~800 ms) with a 5 s maximum flush, skipped when nothing changed, and flushed on tab hide, page hide, reboot, ascension, import, and seed change. Imports and foreign saves pass strict schema validation (finite numbers, ranges, array caps); rejected payloads are quarantined beside the slot instead of overwriting it. Offline yield pays only for non-negative elapsed time within the 8 h cap and only when the miner interval is valid.
 
-### Desktop State
+## Ascension reset
 
-- `shortcuts`: The positions and existence of desktop icons.
-- `wallpaper`: A Base64 string of the user's custom wallpaper (if set).
-- `isAutoMarkEnabled`: The toggle state of the Auto-Marker tool in Explorer.
-
-### File System State (Anti-Exploit & UX)
-
-- `consumedIds`: A list of unique IDs for Packages and Modules that have been opened. This prevents players from finding a high-value package, saving, looting it, reloading the page, and looting it again.
-- `modifiedNodes`: A record of all renames, manual marks, and signal traces performed by the player. This ensures the file system looks exactly how you left it after a refresh.
-
-## The Ascension Reset
-
-When the player successfully executes `ascend.exe`, the system "Ascends" to the next iteration. This triggers a specific cleanup process to balance progression with a fresh gameplay loop.
-
-### What is KEPT (Persisted)
-
-- **Currency**: `dataKB` carries over.
-- **Upgrades**: All mining upgrades (`efficiencyLevel`, `autoMinerData`, `autoMinerInterval`) are kept.
-- **Inventory**: `autoMarkCount` and `boostBank` times are preserved.
-- **Desktop**: Wallpaper and icon positions remain.
-- **Seed**: The `runSeed` remains the same (maintaining the identity of the playthrough).
-
-### What is WIPED (Reset)
-
-- **Modifications**: `modifiedNodes` is cleared. The new directory structure is fresh; no folders are marked or renamed yet.
-- **Consumed Items**: `consumedIds` is cleared. The new iteration generates fresh loot (Packages and Modules) that can be collected.
-- **Active Boost**: `activeBoostMultiplier` is set to null. Any active overclock is paused to prevent wasting time during the transition animation.
-
-## Wallpaper Limitations
-
-Because `localStorage` typically has a quota (usually around 5MB), the custom wallpaper feature limits image uploads to approximately 3MB. If saving the wallpaper would exceed the browser's storage quota, the game will attempt to save the game state *without* the wallpaper to prevent progress loss.
+Keeps currency, upgrades, inventory, desktop, seed, and progression (including `arcadeWins`, `passes`, `fuelPaidIter`, and tool unlocks). Clears `modifiedNodes` and `consumedIds`, resets map `revealedDepths` to root + depth 1 and clears `exploredDirIds`, nulls `activeBoostMultiplier` while banked time stays. The fuel-paid flag and cabinet wins apply per iteration, so a fresh iteration starts unpaid and unwon.

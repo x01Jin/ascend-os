@@ -1,51 +1,31 @@
-# Core Settings & Developer Tools
+# Core settings and developer tools
 
-Hidden within the system is the **Core Settings** application, a powerful toolset for developers, speedrunners, and curious users.
+Hidden toolset for testing, speedruns, and save surgery.
 
 ## Access
 
-The Core Settings app is not listed in the Start Menu. To access it:
+Open System Help and type `core`. The Core Settings window opens.
 
-1. Open **System Help**.
-2. Type `core` on your keyboard while System Help is open.
-3. The "c o r e" text at the bottom will flash, and the Core Settings window will open.
+## Developer overrides
 
-## Features
+Any override switches the game to the Dev save slot:
 
-### Developer Overrides
+- **Infinite Data**: sets Data to ~1 PB.
+- **Root Ascension**: spawns `ascend.exe` in root.
 
-These toggleable flags modify the game rules. Enabling any override automatically switches the game to **Dev Save Mode**.
+## Save management
 
-- **Infinite Data**: Sets your Data currency to effectively infinite (~1 Petabyte), allowing unrestricted testing of upgrades and mechanics.
-- **Root Ascension**: Forces `ascend.exe` to spawn in the Root directory instead of deep within the file system. Useful for quickly testing the Ascension sequence.
+Normal (`ascend_game_state_v2`) and Dev (`ascend_dev_state_v1`) slots.
 
-### Save Management
+- **Switch to Normal**: reboot into the legitimate save.
+- **Reset Session**: wipe the current slot, reboot. Confirms first.
+- **Factory Reset**: wipe all slots and preferences, reload fresh. Confirms first.
 
-Ascend OS utilizes a Dual Save System to protect your legitimate progress while experimenting.
+## Data portability
 
-- **Normal Mode**: The standard gameplay state. Saved to `ascend_game_state_v2`.
-- **Dev Mode**: A separate sandbox state. Saved to `ascend_dev_state_v1`.
+- **Export JSON**: downloads the session as `ascend_save_[timestamp].json`.
+- **Import JSON**: parses the file, requires a numeric `currentIteration`, a numeric `dataKB`, and a `shortcuts` array, then overwrites the session, switches to Dev mode if dev flags are set, reboots.
 
-**Actions:**
+## Universe seed
 
-- **Switch to Normal Save**: If you are in Dev Mode, this button reboots the system and loads your legitimate save file.
-- **Reset Session**: Wipes the _current_ save slot (Normal or Dev) and reboots to a fresh start. This action requires confirmation.
-- **Factory Reset**: Completely wipes **ALL** local storage data (both Normal and Dev saves), clears preferences, and reloads the application as if it were a fresh install. This action requires confirmation.
-
-### Data Portability
-
-You can now backup and restore your progress via JSON files.
-
-- **Export JSON**: Downloads the current session's state as a `.json` file (`ascend_save_[timestamp].json`).
-- **Import JSON**: Allows you to upload a valid save file.
-  - The system validates the file structure before importing.
-  - Importing will **OVERWRITE** your current session.
-  - If the imported file has Dev flags enabled, the system will switch to Dev Mode automatically.
-  - A system reboot is triggered upon successful import.
-
-### Universe Seed
-
-The procedural generation engine uses a deterministic seed.
-
-- **Seed Injection**: You can manually input a numeric seed.
-- **Reconstruct Universe**: Clicking this performs a **Hard Reset**. It wipes all progress, upgrades, and file system modifications, then reboots the OS into a fresh Normal Mode session using the specific seed provided. This effectively allows you to replay specific file system layouts from scratch. This action requires confirmation.
+Numeric input plus Reconstruct Universe: wipes everything and reboots a fresh Normal-mode run on that seed. Confirms first.

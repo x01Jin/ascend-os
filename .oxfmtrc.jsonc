@@ -1,0 +1,19 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "singleQuote": true,
+  "semi": true,
+  "tabWidth": 2,
+  "useTabs": false,
+  "trailingComma": "es5",
+  "printWidth": 100,
+  "bracketSpacing": true,
+  "arrowParens": "avoid",
+  "ignorePatterns": [
+    "dist/**",
+    "dist-ssr/**",
+    "node_modules/**",
+    "package-lock.json",
+    "**/*.min.*",
+    "**/*.log",
+  ],
+}

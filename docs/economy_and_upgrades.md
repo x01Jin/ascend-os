@@ -1,87 +1,52 @@
-# Economy & Upgrades
+# Economy and upgrades
 
 ## Currency: Data
 
-The primary currency in Ascend OS is **Data**, measured in Kilobytes (KB), Megabytes (MB), and Gigabytes (GB).
+Data is measured in KB. Displays convert at 1024 KB = 1 MB and 1024 MB = 1 GB.
 
-- **Format**: 1024 KB = 1 MB.
+## Data Miner
 
-## Data Miner (Clicker)
+Clicking MINE DATA pays `(50 + efficiencyLevel * 5) * activeBoost` KB per click. Boost applies to manual mining clicks only; the Auto-Miner always pays its flat tick.
 
-The **Data Miner** application is the source of income.
-
-- **Action**: Clicking the "MINE DATA" button.
-- **Click Value**: `(50 + efficiencyLevel * 5) * activeBoost` KB per click.
-- **Base Rate**: 50 KB per click at level 0 with no boost active.
-- **Visuals**:
-  - Floating text indicators (`^Rate`) drift and fade around the button.
-  - A real-time data stream visualizer runs at the bottom of the window, reacting to mining speed.
+The window shows a data stream visual, floating rate text, Overclock toggle buttons for each banked multiplier, and the Auto-Miner readout. Switching the browser tab off pauses the active boost and keeps the banked remainder.
 
 ## Auto-Miner
 
-A background module that automatically mines data over time. It can be monitored on the left side of the Data Miner window.
-
-- **Initial State**: 0 KB/tick at 3.00s interval (Offline).
-- **Mechanics**: Once a Power Module is installed, the Auto-Miner comes online and generates data every interval tick.
+Background income. Starts at 0 KB per tick on a 3000 ms interval (offline). Each tick adds `autoMinerData` KB.
 
 ### Hardware Modules (.mod)
 
-Hardware Modules are rare items found in the File Explorer. They appear as **green upload icons** and grant permanent upgrades to the Auto-Miner.
+Green upload icons in the Explorer. Spawn in about 5% of junk slots. Each installs permanently:
 
-- **Spawn Rate**: ~11.5% in junk folders.
-
-1. **Power Module (70%)**:
-   - Increases the Auto-Miner's output.
-   - Effect: **+1 to +5 KB** per tick.
-
-2. **Speed Module (30%)**:
-   - Reduces the time between Auto-Miner ticks.
-   - Effect: **-10ms to -100ms** per module.
-   - Limit: Minimum interval is 0.3s (300ms).
-   - Max-speed conversion: a Speed Module collected while already at 300ms converts to **+1 to +3 KB/tick** Power instead.
+1. **Power Module (70%)**: `+1` to `+5` KB per tick.
+2. **Speed Module (30%)**: `-10` to `-100` ms per tick, floored at 300 ms. A Speed Module drawn at the floor converts to `+1` to `+3` KB per tick instead.
 
 ## Supply Drops (.pkg)
 
-Supply Drops (Packages) are common items found in the File Explorer. They appear as **Orange Packages**.
+Orange package icons. Spawn in about 13% of junk slots. Opening one consumes it and pays immediately:
 
-- **Spawn Rate**: ~15% in junk folders.
-- **Loot Table**:
-  - **Data Cache**: Contains a lump sum of Data (5-10 MB).
-  - **AutoMark Bundle**: Contains 5-10 Auto-Markers.
-  - **Overclock Chip**: Adds time (1-5s) to a random Overclock Bank (x2 - x5).
+- **Data Cache (60%)**: `8-14 MB + 2 MB` per iteration above the first.
+- **Auto-Mark Bundle (30%)**: 3-6 Auto-Markers.
+- **Overclock Chip (10%)**: 1-5 seconds into a random bank (x2-x5).
 
 ## System Updates
 
-The **System Updates** application allows the player to spend Data to improve manual efficiency.
+### Miner efficiency
 
-### 1. Miner Efficiency
+Permanent `+5` KB per click level. Cost: `floor(10240 * 1.15^level)` KB.
 
-- **Type**: Permanent Upgrade.
-- **Effect**: Increases base click value by **+5 KB** per level.
-- **Cost Scaling**: Exponential.
-  - Formula: `10240 * (1.15 ^ Level)`
+### Overclock banks
 
-### 2. Overclock Banks (Boost)
+Banked seconds per multiplier. Buying adds time; toggling a multiplier on in the Data Miner drains its bank by wall-clock time. Switching or turning off preserves the remainder. Purchases check the live balance inside the update, so a double click can only buy once.
 
-- **Type**: Banked Consumable.
-- **System**: Unlike traditional duration-based boosts, Ascend uses a **Bank System**. You purchase "Time" (seconds) for specific multipliers.
-- **Banks**:
-  - **x2**: Standard boost. Cheapest to maintain. Purchasable in System Updates.
-  - **x3**: Advanced boost. Purchasable in System Updates.
-  - **x4**: Super boost. Purchasable in System Updates.
-  - **x5**: Rare boost. Found in Supply Drops; toggled from the Data Miner when banked time exists.
-- **Cost formula**: `seconds * 5120 * 2^(multiplier - 2)` KB (x2: 5120, x3: 10240, x4: 20480 KB per second).
-- **Purchase bundles**: +5 or +10 seconds per purchase in System Updates.
-- **Mechanics**:
-  - Toggle a multiplier ON in the Data Miner.
-  - Time is consumed from that specific bank only while the boost is active.
-  - You can switch between multipliers or turn them off to save time.
-- **Visuals**: The Data Miner pulses red and the liquid data stream becomes agitated.
+- Banks: x2, x3, x4, x5 purchasable. x5 also drops from supply chips; toggle any banked multiplier from the Data Miner.
+- Cost: `seconds * 5120 * 2^(multiplier - 2)` KB.
+- Bundles: +5 or +10 seconds per purchase.
 
-### 3. Auto-Marker Bundle
+### Auto-Marker bundle
 
-- **Type**: Inventory Consumable.
-- **Effect**: Purchases Auto-Markers.
-- **Cost**: 5 MB (5120 KB) per unit.
-- **Bundle size**: Adjustable quantity from 1 to 100 units.
-- **Usage**: See [Exploration & Tools](./exploration_and_tools.md).
+5120 KB per unit. Quantity selector runs 1-100, default 5. See [Exploration and tools](./exploration_and_tools.md).
+
+### Unlockable tools
+
+Explorer Map (100 MB, iteration 2+) and Special-File Radar (250 MB, iteration 3+). See [Map and radar](./tools_map_radar.md).

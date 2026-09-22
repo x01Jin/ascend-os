@@ -1,8 +1,35 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { GameState, WindowState, AppId, FileNode, FileExtension, DirectoryNode, FileType, DesktopShortcut, AppNotification, NotificationType, NodeModification } from './types';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  GameState,
+  WindowState,
+  AppId,
+  FileNode,
+  FileExtension,
+  DirectoryNode,
+  FileType,
+  DesktopShortcut,
+  AppNotification,
+  NotificationType,
+  NodeModification,
+  TeleportTarget,
+  BoostMultiplier,
+} from './types';
 import { generateFileSystem } from './services/generator';
-import { loadGame, saveGame, getSaveMode, setSaveMode, resetSave, factoryReset, SaveMode } from './services/storage';
-import { processDevMode } from './services/devMode';
+import {
+  loadGame,
+  saveGame,
+  scheduleSave,
+  flushSave,
+  backupSlot,
+  restoreBackup,
+  getSaveMode,
+  setSaveMode,
+  saveWallpaper,
+  resetSave,
+  factoryReset,
+  SaveMode,
+} from './services/storage';
+import { nowMs } from './services/clock';
 import {
   INITIAL_GAME_STATE,
   DESKTOP_GRID,
@@ -11,12 +38,26 @@ import {
   UPGRADE_COST_BASE,
   BOOST_COST_BASE_PER_SEC,
   AUTOMARK_COST_PER_UNIT,
-  AUTOMINER_MIN_INTERVAL
+  AUTOMINER_MIN_INTERVAL,
+  MAP_UNLOCK_COST,
+  RADAR_UNLOCK_COST,
+  UPGRADE_COST_GROWTH,
+  isSpecialFile,
+  locateCostFor,
+  triangulationCostFor,
 } from './constants';
 import Taskbar from './components/Taskbar';
 import WindowFrame from './components/WindowFrame';
 import Explorer from './components/apps/Explorer';
 import TextViewer from './components/apps/TextViewer';
+import {
+  archivistFileIdFor,
+  isTrailLocateFileId,
+  scrambledTrailWords,
+  trailIterationOf,
+  trailLocateCostFor,
+  trailSetFor,
+} from './services/trailScramble';
 import Clicker from './components/apps/Clicker';
 import Updates from './components/apps/Updates';
 import BootSequence from './components/system/BootSequence';
@@ -27,73 +68,69 @@ import NotificationSystem from './components/NotificationSystem';
 import Personalize from './components/apps/Personalize';
 import SystemHelp from './components/apps/SystemHelp';
 import CoreSettings from './components/apps/CoreSettings';
-import { Terminal, AlertTriangle } from 'lucide-react';
+import Achievements from './components/apps/Achievements';
+import EggHunt from './components/apps/EggHunt';
+import AscensionGate from './components/apps/AscensionGate';
+import Minigames from './components/apps/Minigames';
+import Cartographer, { revealCostFor, teleportCostFor } from './components/apps/Cartographer';
+import Radar from './components/apps/Radar';
+import { MINIGAMES, fuelFeeKB, getGateStatus } from './services/gate';
+import ThankYouLetter from './components/system/ThankYouLetter';
+import { ACH_FOR_ZIP, ACHIEVEMENTS } from './services/achievements';
+import { SECRETS } from './services/secrets';
+import { LORE_FRAGMENTS } from './services/lore';
+import { computeProgress, isZipEarned } from './services/progression';
+import { Terminal } from 'lucide-react';
 
-// Helper to remove already consumed packages/modules from the generated tree
-const filterConsumedNodes = (node: DirectoryNode, consumedIds: string[]): DirectoryNode => {
-  if (consumedIds.length === 0) return node;
+import {
+  ancestorIds,
+  buildSystem,
+  findNodeById,
+  prepareFileSystem,
+  updateNodeRecursively,
+} from './services/filesystem';
 
-  // Filter out children that are in the consumed list
-  const validChildren = node.children.filter(child => !consumedIds.includes(child.id));
-
-  // Recursively filter subfolders
-  const processedChildren = validChildren.map(child => {
-    if (child.type === FileType.FOLDER) {
-      return filterConsumedNodes(child as DirectoryNode, consumedIds);
-    }
-    return child;
-  });
-
-  return { ...node, children: processedChildren };
+const handleFactoryReset = () => {
+  factoryReset();
+  window.location.reload();
 };
 
-// Helper to apply persistent modifications (Renames, Marks, Scanned) to the generated tree
-const applyModifications = (node: DirectoryNode, modifications: Record<string, NodeModification>): DirectoryNode => {
-  let newNode = { ...node };
-
-  // Apply modification to current node if exists
-  if (modifications[node.id]) {
-    const mods = modifications[node.id];
-    if (mods.name !== undefined) newNode.name = mods.name;
-    if (mods.isMarked !== undefined) newNode.isMarked = mods.isMarked;
-    if (mods.isScanned !== undefined) newNode.isScanned = mods.isScanned;
+const instanceKeyOf = (appId: AppId, data?: unknown): string | null => {
+  if (appId === AppId.EXPLORER) return null;
+  if (appId === AppId.TEXT_VIEWER || appId === AppId.ASCENSION || appId === AppId.EGG) {
+    return `${appId}:${(data as FileNode | undefined)?.id ?? 'new'}`;
   }
-
-  // Recurse for children
-  newNode.children = newNode.children.map(child => {
-    if (child.type === FileType.FOLDER) {
-      return applyModifications(child as DirectoryNode, modifications);
-    } else {
-      // Apply mods to files too
-      if (modifications[child.id]) {
-        const mods = modifications[child.id];
-        // Type casting needed because modifications can contain any property, safe here
-        return { ...child, ...mods } as FileNode;
-      }
-      return child;
-    }
-  });
-
-  return newNode;
+  if (appId === AppId.MINIGAME) {
+    return `${appId}:${(data as { gameId?: string } | undefined)?.gameId ?? 'new'}`;
+  }
+  return appId;
 };
 
 const App: React.FC = () => {
-  // Game State
-  const [saveMode, setSaveModeState] = useState<SaveMode>('NORMAL');
-  const [gameState, setGameState] = useState<GameState>(INITIAL_GAME_STATE);
-  const [fileSystem, setFileSystem] = useState<DirectoryNode | null>(null);
+  const [initialSystem] = useState(() => {
+    const mode = getSaveMode();
+    return { mode, ...buildSystem(mode) };
+  });
+  const [saveMode, setSaveModeState] = useState<SaveMode>(initialSystem.mode);
+  const [gameState, setGameState] = useState<GameState>(initialSystem.loadedState);
+  const gameStateRef = useRef(gameState);
+  const [fileSystem, setFileSystem] = useState<DirectoryNode | null>(initialSystem.finalFS);
+  const offlineYieldRef = useRef(initialSystem.offlineYieldKB);
 
-  // System Phases
   const [isBooting, setIsBooting] = useState(true);
   const [isAscending, setIsAscending] = useState(false);
+  const [desktopNonce, setDesktopNonce] = useState(0);
+  const refreshTimes = useRef<number[]>([]);
 
-  // Window Manager State
   const [windows, setWindows] = useState<WindowState[]>([]);
   const [activeWindowId, setActiveWindowId] = useState<string | null>(null);
+  const [lastExplorerId, setLastExplorerId] = useState<string | null>(null);
   const [nextZIndex, setNextZIndex] = useState(100);
   const [cascadeCount, setCascadeCount] = useState(0);
+  if (windows.length === 0 && cascadeCount > 0) {
+    setCascadeCount(0);
+  }
 
-  // Context Menu State
   const [contextMenu, setContextMenu] = useState<{
     isOpen: boolean;
     x: number;
@@ -101,10 +138,12 @@ const App: React.FC = () => {
     items: ContextMenuItem[];
   }>({ isOpen: false, x: 0, y: 0, items: [] });
 
-  // Notifications
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
 
-  // Update Loop for Timers (Boost Consumption)
+  const dismissZipReward = () => setGameState(prev => ({ ...prev, secretsZipSeen: true }));
+  const dismissThankYou = () => setGameState(prev => ({ ...prev, hasSeenThankYou: true }));
+
+  const boostLastTickRef = useRef<number>(nowMs());
   useEffect(() => {
     const tickRate = 100;
     const timer = setInterval(() => {
@@ -117,85 +156,114 @@ const App: React.FC = () => {
             return { ...prev, activeBoostMultiplier: null };
           }
 
+          const now = nowMs();
+          const delta = Math.min(Math.max(0, now - boostLastTickRef.current), 5000);
+          boostLastTickRef.current = now;
+          const remaining = Math.max(0, currentBank - Math.max(tickRate, delta));
+          if (remaining <= 0) {
+            return {
+              ...prev,
+              boostBank: { ...prev.boostBank, [mult]: 0 },
+              activeBoostMultiplier: null,
+            };
+          }
           return {
             ...prev,
             boostBank: {
               ...prev.boostBank,
-              [mult]: Math.max(0, currentBank - tickRate)
-            }
+              [mult]: remaining,
+            },
           };
         }
+        boostLastTickRef.current = nowMs();
         return prev;
       });
     }, tickRate);
     return () => clearInterval(timer);
   }, []);
 
-  // --- Auto Miner Loop & Infinite Data Check ---
   useEffect(() => {
+    const onHidden = () => {
+      if (document.visibilityState === 'hidden') {
+        boostLastTickRef.current = nowMs();
+        setGameState(prev =>
+          prev.activeBoostMultiplier ? { ...prev, activeBoostMultiplier: null } : prev
+        );
+        flushSave();
+      } else {
+        boostLastTickRef.current = nowMs();
+      }
+    };
+    document.addEventListener('visibilitychange', onHidden);
+    window.addEventListener('pagehide', onHidden);
+    return () => {
+      document.removeEventListener('visibilitychange', onHidden);
+      window.removeEventListener('pagehide', onHidden);
+    };
+  }, []);
+
+  useEffect(() => {
+    const interval = Math.max(AUTOMINER_MIN_INTERVAL, gameState.autoMinerInterval);
     const intervalId = setInterval(() => {
       setGameState(prev => {
         let newState = { ...prev };
 
-        // Apply Auto Miner if powered
         if (prev.autoMinerData > 0) {
           newState.dataKB = prev.dataKB + prev.autoMinerData;
+          const minedTotal = prev.stats.totalMinedKB + prev.autoMinerData;
+          newState.stats = {
+            ...prev.stats,
+            totalMinedKB: minedTotal,
+          };
+          const earned: Record<string, number> = {};
+          if (minedTotal >= 10240 && prev.achievements['ten_mb'] === undefined) {
+            earned['ten_mb'] = nowMs();
+          }
+          if (minedTotal >= 512000 && prev.achievements['half_gb'] === undefined) {
+            earned['half_gb'] = nowMs();
+          }
+          if (Object.keys(earned).length > 0) {
+            newState.achievements = { ...prev.achievements, ...earned };
+          }
         }
 
-        // Apply Dev Mode Infinite Data
         if (prev.isDevModeEnabled && newState.dataKB < 999999999) {
           newState.dataKB = 999999999999;
         }
 
+        newState.lastTickAt = nowMs();
+
         return newState;
       });
-    }, gameState.autoMinerInterval);
+    }, interval);
 
     return () => clearInterval(intervalId);
-  }, [gameState.autoMinerData, gameState.autoMinerInterval, gameState.isDevModeEnabled]);
+  }, [gameState.autoMinerInterval]);
 
-
-  // --- Initialization ---
   const initializeSystem = useCallback((mode: SaveMode) => {
-    let loadedState = loadGame(mode);
-
-    if (!loadedState) {
-      loadedState = { ...INITIAL_GAME_STATE };
-      loadedState.runSeed = Date.now();
-    }
-
-    if (!loadedState.shortcuts) {
-      loadedState.shortcuts = INITIAL_GAME_STATE.shortcuts;
-    }
-
-    loadedState = processDevMode(loadedState);
-
+    const { loadedState, finalFS } = buildSystem(mode);
     setGameState(loadedState);
     setSaveModeState(mode);
-
-    const rawFS = generateFileSystem(loadedState.currentIteration, loadedState.runSeed, loadedState.isAscendRootEnabled);
-    const filteredFS = filterConsumedNodes(rawFS, loadedState.consumedIds || []);
-    const finalFS = applyModifications(filteredFS, loadedState.modifiedNodes || {});
-
     setFileSystem(finalFS);
   }, []);
 
   useEffect(() => {
-    const currentMode = getSaveMode();
-    initializeSystem(currentMode);
-  }, [initializeSystem]);
+    gameStateRef.current = gameState;
+  });
 
-  // Save on change
   useEffect(() => {
     if (!isBooting && !isAscending) {
-      saveGame(gameState, saveMode);
+      scheduleSave(gameState, saveMode);
     }
   }, [gameState, isBooting, isAscending, saveMode]);
 
-  // --- Notification Manager ---
   const addNotification = useCallback((title: string, message: string, type: NotificationType) => {
-    const id = Date.now().toString() + Math.random();
-    setNotifications(prev => [...prev, { id, title, message, type }]);
+    const id = nowMs().toString() + Math.random();
+    setNotifications(prev =>
+      prev.some(n => n.title === title && n.message === message)
+        ? prev
+        : [...prev.slice(-5), { id, title, message, type }]
+    );
 
     setTimeout(() => {
       setNotifications(prev => prev.filter(n => n.id !== id));
@@ -206,7 +274,103 @@ const App: React.FC = () => {
     setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
-  // --- Context Menu Handler ---
+  useEffect(() => {
+    if (!isBooting && offlineYieldRef.current > 0) {
+      const yieldKB = offlineYieldRef.current;
+      offlineYieldRef.current = 0;
+      const amount = yieldKB >= 1024 ? `${(yieldKB / 1024).toFixed(1)} MB` : `${yieldKB} KB`;
+      addNotification(
+        'OFFLINE YIELD',
+        `Autominer ran at 50% while away: +${amount}.`,
+        NotificationType.SUCCESS
+      );
+    }
+  }, [isBooting, addNotification]);
+
+  const unlockAchievement = useCallback(
+    (id: string) => {
+      if (gameStateRef.current.achievements[id] !== undefined) return;
+      const def = ACHIEVEMENTS.find(a => a.id === id);
+      setGameState(prev => {
+        if (prev.achievements[id] !== undefined) return prev;
+        return {
+          ...prev,
+          achievements: { ...prev.achievements, [id]: nowMs() },
+        };
+      });
+      addNotification(
+        'TASK COMPLETE',
+        def ? `${def.title}: ${def.description}` : id,
+        NotificationType.SUCCESS
+      );
+    },
+    [addNotification]
+  );
+
+  const discoverSecret = useCallback(
+    (id: string) => {
+      if (gameStateRef.current.secretsFound.includes(id)) return false;
+      const def = SECRETS.find(s => s.id === id);
+      setGameState(prev => {
+        if (prev.secretsFound.includes(id)) return prev;
+        const secretsFound = [...prev.secretsFound, id];
+        const achievements =
+          secretsFound.length >= 3 && prev.achievements['egg_hunter'] === undefined
+            ? { ...prev.achievements, egg_hunter: nowMs() }
+            : prev.achievements;
+        return { ...prev, secretsFound, achievements };
+      });
+      addNotification('SECRET FOUND', def ? def.title : id, NotificationType.SUCCESS);
+      if (id === 'trail') unlockAchievement('trail');
+      if (id === 'offering') unlockAchievement('offering');
+      return true;
+    },
+    [unlockAchievement, addNotification]
+  );
+
+  const seeLore = useCallback(
+    (id: string) => {
+      const fragment = LORE_FRAGMENTS.find(l => l.id === id);
+      if (!fragment || gameStateRef.current.loreSeen.includes(id)) return;
+      setGameState(prev =>
+        prev.loreSeen.includes(id) ? prev : { ...prev, loreSeen: [...prev.loreSeen, id] }
+      );
+      addNotification('LORE ENTRY', fragment.title, NotificationType.INFO);
+    },
+    [addNotification]
+  );
+
+  const seeFile = useCallback(
+    (file: FileNode) => {
+      if (file.loreId) seeLore(file.loreId);
+      file.loreExtra?.forEach(seeLore);
+      if (file.loreId?.startsWith('lore_archivist')) {
+        setGameState(prev =>
+          prev.trailProof[prev.currentIteration] === prev.currentIteration
+            ? prev
+            : {
+                ...prev,
+                trailProof: {
+                  ...prev.trailProof,
+                  [prev.currentIteration]: prev.currentIteration,
+                },
+              }
+        );
+      }
+    },
+    [seeLore]
+  );
+
+  const progress = computeProgress(
+    Object.keys(gameState.achievements).length,
+    gameState.secretsFound.length,
+    gameState.loreSeen.length
+  );
+  const zipEarned = isZipEarned(gameState.achievements, ACH_FOR_ZIP);
+
+  const showZipReward = zipEarned && !gameState.secretsZipSeen && !isBooting;
+  const showThankYou = progress >= 100 && !gameState.hasSeenThankYou && !isBooting;
+
   const handleContextMenu = useCallback((x: number, y: number, items: ContextMenuItem[]) => {
     setContextMenu({ isOpen: true, x, y, items });
   }, []);
@@ -216,59 +380,75 @@ const App: React.FC = () => {
   }, []);
 
   const handleRefreshSystem = () => {
-    setWindows([]);
-    setCascadeCount(0);
-    setIsBooting(true);
+    setContextMenu(prev => ({ ...prev, isOpen: false }));
+    setDesktopNonce(n => n + 1);
+    const now = nowMs();
+    refreshTimes.current = [...refreshTimes.current.filter(t => now - t < 10000), now];
+    if (refreshTimes.current.length >= 5) discoverSecret('refresh');
   };
 
   const handleDesktopContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     handleContextMenu(e.clientX, e.clientY, [
-      { label: 'Refresh System', action: handleRefreshSystem },
+      { label: 'Refresh', action: handleRefreshSystem },
       { separator: true, label: '' },
       { label: 'Personalize', action: () => openWindow(AppId.PERSONALIZE) },
-      { label: 'About Ascend OS', action: () => openWindow(AppId.HELP) }
+      { label: 'About Ascend OS', action: () => openWindow(AppId.HELP) },
     ]);
   };
 
-  // --- File System Management ---
-
-  const updateNodeRecursively = (node: DirectoryNode, targetId: string, updates: Partial<FileNode | DirectoryNode> | null): DirectoryNode => {
-    if (node.id === targetId && updates) {
-      return { ...node, ...updates } as DirectoryNode;
-    }
-
-    if (node.children.some(c => c.id === targetId && updates === null)) {
-      return {
-        ...node,
-        children: node.children.filter(c => c.id !== targetId)
-      };
-    }
-
-    const newChildren = node.children.map(child => {
-      if (child.id === targetId && updates) {
-        return { ...child, ...updates } as any;
-      }
-      if (child.type === FileType.FOLDER) {
-        return updateNodeRecursively(child as DirectoryNode, targetId, updates);
-      }
-      return child;
+  const revealGatePath = (fileId: string, tree: DirectoryNode) => {
+    const ids = ancestorIds(tree, fileId);
+    const gateMark = { isMarked: true, markKind: 'gate' } as const;
+    const markAll = (node: DirectoryNode): DirectoryNode => ({
+      ...node,
+      ...(ids.has(node.id) ? gateMark : {}),
+      children: node.children.map(child =>
+        child.type === FileType.FOLDER
+          ? markAll(child as DirectoryNode)
+          : ids.has(child.id)
+            ? { ...child, ...gateMark }
+            : child
+      ),
     });
-
-    return { ...node, children: newChildren };
+    setFileSystem(markAll(tree));
+    setGameState(prev => {
+      const modifiedNodes = { ...prev.modifiedNodes };
+      ids.forEach(id => {
+        modifiedNodes[id] = { ...modifiedNodes[id], ...gateMark };
+      });
+      return { ...prev, modifiedNodes };
+    });
   };
 
   const handleUpdateNode = (id: string, updates: Partial<FileNode | DirectoryNode>) => {
     if (!fileSystem) return;
 
+    if (updates.isScanned) {
+      unlockAchievement('signal_found');
+      if (gameState.stats.scans + 1 >= 25) unlockAchievement('deep_scan');
+      setGameState(prev => ({
+        ...prev,
+        stats: { ...prev.stats, scans: prev.stats.scans + 1 },
+      }));
+    }
+
     const newFileSystem = updateNodeRecursively(fileSystem, id, updates);
     setFileSystem(newFileSystem);
 
+    if (updates.isScanned) {
+      const scanned = findNodeById(newFileSystem, id);
+      if (scanned?.isWinningPath && scanned.type !== FileType.FOLDER) {
+        revealGatePath(id, newFileSystem);
+      }
+    }
+
     setGameState(prev => {
       const currentMods = prev.modifiedNodes?.[id] || {};
-      const relevantUpdates: any = {};
+      const relevantUpdates: NodeModification = {};
       if (updates.name !== undefined) relevantUpdates.name = updates.name;
       if (updates.isMarked !== undefined) relevantUpdates.isMarked = updates.isMarked;
+      if (updates.markKind !== undefined) relevantUpdates.markKind = updates.markKind;
       if (updates.isScanned !== undefined) relevantUpdates.isScanned = updates.isScanned;
 
       if (Object.keys(relevantUpdates).length === 0) return prev;
@@ -277,8 +457,8 @@ const App: React.FC = () => {
         ...prev,
         modifiedNodes: {
           ...prev.modifiedNodes,
-          [id]: { ...currentMods, ...relevantUpdates }
-        }
+          [id]: { ...currentMods, ...relevantUpdates },
+        },
       };
     });
   };
@@ -289,115 +469,172 @@ const App: React.FC = () => {
     setFileSystem(newFileSystem);
   };
 
-  // --- Window Management ---
-
-  useEffect(() => {
-    if (windows.length === 0 && cascadeCount > 0) {
-      setCascadeCount(0);
-    }
-  }, [windows.length, cascadeCount]);
-
-  const openWindow = useCallback((appId: AppId, data?: any) => {
-    // Only a subset of apps should be single-instance (do not open duplicates)
-    const singleInstanceApps = new Set<AppId>([AppId.CORE_SETTINGS, AppId.HELP, AppId.PERSONALIZE]);
-    if (singleInstanceApps.has(appId)) {
-      const existing = windows.find(w => w.appId === appId);
-      if (existing) {
-        setWindows(prev => prev.map(w => w.id === existing.id ? { ...w, zIndex: nextZIndex, isMinimized: false } : w));
-        setActiveWindowId(existing.id);
-        setNextZIndex(prev => prev + 1);
-        return existing.id;
+  const openWindow = useCallback(
+    (appId: AppId, data?: unknown) => {
+      const key = instanceKeyOf(appId, data);
+      if (key !== null) {
+        const existing = windows.find(w => instanceKeyOf(w.appId, w.data) === key);
+        if (existing) {
+          setWindows(prev =>
+            prev.map(w =>
+              w.id === existing.id ? { ...w, zIndex: nextZIndex, isMinimized: false } : w
+            )
+          );
+          setActiveWindowId(existing.id);
+          setNextZIndex(prev => prev + 1);
+          return existing.id;
+        }
       }
-    }
 
-    const id = `${appId}_${Date.now()}`;
-    let title = 'Application';
+      const id = `${appId}_${nowMs()}_${Math.random().toString(36).slice(2, 7)}`;
+      let title = 'Application';
 
-    switch (appId) {
-      case AppId.EXPLORER: title = 'File Explorer'; break;
-      case AppId.TEXT_VIEWER: title = data?.name || 'Text Viewer'; break;
-      case AppId.CLICKER: title = 'Data Miner'; break;
-      case AppId.UPDATES: title = 'System Updates'; break;
-      case AppId.HELP: title = 'System Help'; break;
-      case AppId.ASCENSION: title = 'System Ascension'; break;
-      case AppId.PERSONALIZE: title = 'Personalization'; break;
-      case AppId.CORE_SETTINGS: title = 'CORE_SETTINGS'; break;
-    }
+      switch (appId) {
+        case AppId.EXPLORER:
+          title = 'File Explorer';
+          break;
+        case AppId.TEXT_VIEWER:
+          title = (data as FileNode | undefined)?.name || 'Text Viewer';
+          break;
+        case AppId.CLICKER:
+          title = 'Data Miner';
+          break;
+        case AppId.UPDATES:
+          title = 'System Updates';
+          break;
+        case AppId.HELP:
+          title = 'System Help';
+          break;
+        case AppId.ASCENSION:
+          title = 'System Ascension';
+          break;
+        case AppId.CARTOGRAPHER:
+          title = 'Explorer Map';
+          break;
+        case AppId.RADAR:
+          title = 'Radar';
+          break;
+        case AppId.MINIGAME:
+          title = 'Minigame';
+          break;
+        case AppId.EGG:
+          title = 'Egg';
+          break;
+        case AppId.ACHIEVEMENTS:
+          title = 'Achievements';
+          break;
+        case AppId.PERSONALIZE:
+          title = 'Personalization';
+          break;
+        case AppId.CORE_SETTINGS:
+          title = 'CORE_SETTINGS';
+          break;
+      }
 
-    let currentCascadeCount = cascadeCount;
-    if (windows.length === 0) {
-      currentCascadeCount = 0;
-    }
+      let currentCascadeCount = cascadeCount;
+      if (windows.length === 0) {
+        currentCascadeCount = 0;
+      }
 
-    const cascadeStep = 30;
-    const maxCascadeSteps = 10;
-    const currentCascade = currentCascadeCount % maxCascadeSteps;
-    const cascadeOffset = currentCascade * cascadeStep;
+      const cascadeStep = 30;
+      const maxCascadeSteps = 10;
+      const currentCascade = currentCascadeCount % maxCascadeSteps;
+      const cascadeOffset = currentCascade * cascadeStep;
 
-    const winWidth = 600;
-    const winHeight = 450;
+      const winWidth = 600;
+      const winHeight = 450;
 
-    const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1024;
-    const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 768;
+      const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1024;
+      const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 768;
 
-    let startX = (viewportWidth / 2) - (winWidth / 2) + cascadeOffset;
-    let startY = (viewportHeight / 2) - (winHeight / 2) + cascadeOffset;
+      let startX = viewportWidth / 2 - winWidth / 2 + cascadeOffset;
+      let startY = viewportHeight / 2 - winHeight / 2 + cascadeOffset;
 
-    startX = Math.max(10, startX);
-    startY = Math.max(10, startY);
+      startX = Math.max(10, startX);
+      startY = Math.max(10, startY);
 
-    const newWindow: WindowState = {
-      id,
-      appId,
-      title,
-      zIndex: nextZIndex,
-      isMinimized: false,
-      data,
-      position: { x: startX, y: startY }
-    };
+      const newWindow: WindowState = {
+        id,
+        appId,
+        title,
+        zIndex: nextZIndex,
+        isMinimized: false,
+        isMaximized: false,
+        data,
+        position: { x: startX, y: startY },
+      };
 
-    setWindows(prev => [...prev, newWindow]);
-    setActiveWindowId(id);
-    setNextZIndex(prev => prev + 1);
-    setCascadeCount(currentCascadeCount + 1);
-  }, [nextZIndex, cascadeCount, windows]);
+      setWindows(prev => [...prev, newWindow]);
+      setActiveWindowId(id);
+      setNextZIndex(prev => prev + 1);
+      setCascadeCount(currentCascadeCount + 1);
+      if (appId === AppId.EXPLORER) setLastExplorerId(id);
+      return id;
+    },
+    [nextZIndex, cascadeCount, windows]
+  );
 
   const closeWindow = (id: string) => {
     setWindows(prev => prev.filter(w => w.id !== id));
     if (activeWindowId === id) setActiveWindowId(null);
+    if (lastExplorerId === id) setLastExplorerId(null);
     setCascadeCount(0);
   };
 
   const focusWindow = (id: string) => {
+    if (windows.some(w => w.id === id && w.appId === AppId.EXPLORER)) {
+      setLastExplorerId(id);
+    }
     if (activeWindowId === id) {
       const win = windows.find(w => w.id === id);
       if (win?.isMinimized) {
-        setWindows(prev => prev.map(w => w.id === id ? { ...w, isMinimized: false, zIndex: nextZIndex } : w));
+        setWindows(prev =>
+          prev.map(w => (w.id === id ? { ...w, isMinimized: false, zIndex: nextZIndex } : w))
+        );
         setNextZIndex(prev => prev + 1);
       }
       return;
     }
 
-    setWindows(prev => prev.map(w => w.id === id ? { ...w, zIndex: nextZIndex, isMinimized: false } : w));
+    setWindows(prev =>
+      prev.map(w => (w.id === id ? { ...w, zIndex: nextZIndex, isMinimized: false } : w))
+    );
     setActiveWindowId(id);
     setNextZIndex(prev => prev + 1);
   };
 
   const minimizeWindow = (id: string) => {
-    setWindows(prev => prev.map(w => w.id === id ? { ...w, isMinimized: true } : w));
+    setWindows(prev => prev.map(w => (w.id === id ? { ...w, isMinimized: true } : w)));
     if (activeWindowId === id) setActiveWindowId(null);
   };
 
+  const toggleMaximize = (id: string) => {
+    setWindows(prev =>
+      prev.map(w =>
+        w.id === id
+          ? {
+              ...w,
+              isMaximized: !w.isMaximized,
+              isMinimized: false,
+              zIndex: nextZIndex,
+            }
+          : w
+      )
+    );
+    setActiveWindowId(id);
+    setNextZIndex(prev => prev + 1);
+  };
+
   const moveWindow = (id: string, x: number, y: number) => {
-    setWindows(prev => prev.map(w => w.id === id ? { ...w, position: { x, y } } : w));
+    setWindows(prev => prev.map(w => (w.id === id ? { ...w, position: { x, y } } : w)));
     setCascadeCount(0);
   };
 
-  // --- Desktop Shortcuts ---
-
   const handleMoveShortcut = (id: string, gridX: number, gridY: number) => {
     setGameState(prev => {
-      const isOccupied = prev.shortcuts.some(sc => sc.id !== id && sc.gridX === gridX && sc.gridY === gridY);
+      const isOccupied = prev.shortcuts.some(
+        sc => sc.id !== id && sc.gridX === gridX && sc.gridY === gridY
+      );
 
       if (isOccupied) {
         return prev;
@@ -418,22 +655,29 @@ const App: React.FC = () => {
       { separator: true, label: '' },
       { label: 'Open', action: () => openWindow(shortcut.appId) },
       {
-        label: 'Delete Shortcut', action: () => {
+        label: 'Delete Shortcut',
+        action: () => {
           setGameState(prev => ({
             ...prev,
-            shortcuts: prev.shortcuts.filter(s => s.id !== shortcut.id)
+            shortcuts: prev.shortcuts.filter(s => s.id !== shortcut.id),
           }));
-        }, danger: true
-      }
+        },
+        danger: true,
+      },
     ]);
   };
 
   const handlePinToDesktop = (appId: AppId, label: string) => {
     setGameState(prev => {
+      if (prev.shortcuts.some(s => s.appId === appId && s.label === label)) return prev;
       let gridX = 0;
       let gridY = 0;
-      const maxCols = Math.floor((window.innerWidth - DESKTOP_GRID.MARGIN_LEFT) / DESKTOP_GRID.WIDTH);
-      const maxRows = Math.floor((window.innerHeight - DESKTOP_GRID.MARGIN_TOP) / DESKTOP_GRID.HEIGHT);
+      const maxCols = Math.floor(
+        (window.innerWidth - DESKTOP_GRID.MARGIN_LEFT) / DESKTOP_GRID.WIDTH
+      );
+      const maxRows = Math.floor(
+        (window.innerHeight - DESKTOP_GRID.MARGIN_TOP) / DESKTOP_GRID.HEIGHT
+      );
 
       let found = false;
       for (let y = 0; y < maxRows + 5; y++) {
@@ -450,77 +694,241 @@ const App: React.FC = () => {
       }
 
       const newShortcut: DesktopShortcut = {
-        id: `sc_${Date.now()}`,
+        id: `sc_${nowMs()}`,
         appId,
         label,
         gridX,
-        gridY
+        gridY,
       };
 
       return { ...prev, shortcuts: [...prev.shortcuts, newShortcut] };
     });
   };
 
-  // --- Game Logic ---
+  const [teleportTarget, setTeleportTarget] = useState<TeleportTarget | null>(null);
+  const [explorerDirId, setExplorerDirId] = useState<string>('root');
+
+  const handleTeleport = (dirId: string) => {
+    if (!fileSystem) return;
+    const cost = teleportCostFor(fileSystem, explorerDirId, dirId, gameState.exploredDirIds);
+    if (gameState.autoMarkCount < cost) {
+      addNotification(
+        'MARKERS SHORT',
+        `Teleport needs ${cost} automarkers.`,
+        NotificationType.WARNING
+      );
+      return;
+    }
+    if (cost > 0) {
+      setGameState(prev => ({
+        ...prev,
+        autoMarkCount: prev.autoMarkCount - cost,
+      }));
+    }
+    const explorers = windows.filter(w => w.appId === AppId.EXPLORER);
+    const target =
+      explorers.find(w => w.id === lastExplorerId) ??
+      explorers.reduce<WindowState | null>(
+        (top, w) => (!top || w.zIndex > top.zIndex ? w : top),
+        null
+      );
+    if (target) {
+      focusWindow(target.id);
+      setLastExplorerId(target.id);
+      setTeleportTarget({ dirId, nonce: nowMs(), windowId: target.id });
+    } else {
+      openWindow(AppId.EXPLORER);
+      setTeleportTarget({ dirId, nonce: nowMs(), windowId: null });
+    }
+    unlockAchievement('ferry_hop');
+  };
+
+  const handleUnlockTool = (tool: string) => {
+    const cost = tool === 'radar' ? RADAR_UNLOCK_COST : MAP_UNLOCK_COST;
+    const minIter = tool === 'radar' ? 3 : 2;
+    if (gameState.unlockedTools.includes(tool)) return;
+    setGameState(prev => {
+      if (
+        prev.unlockedTools.includes(tool) ||
+        prev.currentIteration < minIter ||
+        prev.dataKB < cost
+      )
+        return prev;
+      return {
+        ...prev,
+        dataKB: prev.dataKB - cost,
+        unlockedTools: [...prev.unlockedTools, tool],
+      };
+    });
+    handlePinToDesktop(
+      tool === 'radar' ? AppId.RADAR : AppId.CARTOGRAPHER,
+      tool === 'radar' ? 'Radar' : 'Explorer Map'
+    );
+    unlockAchievement(tool === 'radar' ? 'radar_op' : 'cartographer');
+    addNotification('TOOL UNLOCKED', `${tool} installed to desktop.`, NotificationType.SUCCESS);
+  };
 
   const activeBoost = gameState.activeBoostMultiplier || 1;
-  const clickValue = (CLICK_VALUE_BASE + (gameState.efficiencyLevel * CLICK_UPGRADE_INCREMENT)) * activeBoost;
+  const clickValue =
+    (CLICK_VALUE_BASE + gameState.efficiencyLevel * CLICK_UPGRADE_INCREMENT) * activeBoost;
 
   const handleHarvestData = () => {
-    setGameState(prev => ({ ...prev, dataKB: prev.dataKB + clickValue }));
+    unlockAchievement('warm_hands');
+    setGameState(prev => {
+      const mult = prev.activeBoostMultiplier || 1;
+      const value = (CLICK_VALUE_BASE + prev.efficiencyLevel * CLICK_UPGRADE_INCREMENT) * mult;
+      const minedTotal = prev.stats.totalMinedKB + value;
+      const achievements = { ...prev.achievements };
+      if (minedTotal >= 10240 && achievements['ten_mb'] === undefined)
+        achievements['ten_mb'] = nowMs();
+      if (minedTotal >= 512000 && achievements['half_gb'] === undefined)
+        achievements['half_gb'] = nowMs();
+      return {
+        ...prev,
+        dataKB: prev.dataKB + value,
+        stats: { ...prev.stats, totalMinedKB: minedTotal },
+        achievements,
+      };
+    });
   };
 
   const handleSpendData = (amount: number) => {
-    setGameState(prev => ({ ...prev, dataKB: Math.max(0, prev.dataKB - amount) }));
+    setGameState(prev => ({
+      ...prev,
+      dataKB: Math.max(0, prev.dataKB - amount),
+    }));
   };
 
   const handlePurchaseUpgrade = () => {
-    const cost = Math.floor(UPGRADE_COST_BASE * Math.pow(1.15, gameState.efficiencyLevel));
-    if (gameState.dataKB >= cost) {
-      setGameState(prev => ({
+    setGameState(prev => {
+      const cost = Math.floor(
+        UPGRADE_COST_BASE * Math.pow(UPGRADE_COST_GROWTH, prev.efficiencyLevel)
+      );
+      if (prev.dataKB < cost) return prev;
+      return {
         ...prev,
         dataKB: prev.dataKB - cost,
-        efficiencyLevel: prev.efficiencyLevel + 1
-      }));
-    }
+        efficiencyLevel: prev.efficiencyLevel + 1,
+      };
+    });
   };
 
-  const handlePurchaseBoost = (multiplier: number, seconds: number) => {
+  const handlePurchaseBoost = (multiplier: BoostMultiplier, seconds: number) => {
     const scale = Math.pow(2, multiplier - 2);
     const cost = seconds * BOOST_COST_BASE_PER_SEC * scale;
 
-    if (gameState.dataKB >= cost) {
-      setGameState(prev => ({
+    setGameState(prev => {
+      if (prev.dataKB < cost) return prev;
+      return {
         ...prev,
         dataKB: prev.dataKB - cost,
         boostBank: {
           ...prev.boostBank,
-          [multiplier]: (prev.boostBank[multiplier] || 0) + (seconds * 1000)
-        }
-      }));
-    }
+          [multiplier]: (prev.boostBank[multiplier] || 0) + seconds * 1000,
+        },
+      };
+    });
   };
 
   const handlePurchaseAutoMark = (amount: number) => {
     const cost = amount * AUTOMARK_COST_PER_UNIT;
-    if (gameState.dataKB >= cost) {
-      setGameState(prev => ({
+    setGameState(prev => {
+      if (prev.dataKB < cost) return prev;
+      return {
         ...prev,
         dataKB: prev.dataKB - cost,
-        autoMarkCount: prev.autoMarkCount + amount
-      }));
-    }
+        autoMarkCount: prev.autoMarkCount + amount,
+      };
+    });
   };
 
   const handleToggleAutoMark = () => {
-    setGameState(prev => ({ ...prev, isAutoMarkEnabled: !prev.isAutoMarkEnabled }));
+    setGameState(prev => ({
+      ...prev,
+      isAutoMarkEnabled: !prev.isAutoMarkEnabled,
+    }));
   };
 
   const handleConsumeAutoMark = () => {
-    setGameState(prev => ({ ...prev, autoMarkCount: Math.max(0, prev.autoMarkCount - 1) }));
+    setGameState(prev => ({
+      ...prev,
+      autoMarkCount: Math.max(0, prev.autoMarkCount - 1),
+    }));
   };
 
-  const handleToggleBoost = (multiplier: number) => {
+  const handleTriangulate = (fileId: string, tier: 1 | 2 | 3) => {
+    if (!fileSystem || (gameState.triangulated[fileId] ?? 0) >= tier) return;
+    const target = findNodeById(fileSystem, fileId);
+    if (!target || target.type === FileType.FOLDER) return;
+    const cost = triangulationCostFor(tier, gameState.currentIteration, isSpecialFile(target));
+    if (gameState.dataKB < cost) return;
+    if (tier === 3 && isSpecialFile(target)) unlockAchievement('dead_on');
+    setGameState(prev =>
+      (prev.triangulated[fileId] ?? 0) >= tier || prev.dataKB < cost
+        ? prev
+        : {
+            ...prev,
+            dataKB: prev.dataKB - cost,
+            triangulated: { ...prev.triangulated, [fileId]: tier },
+          }
+    );
+  };
+  const handleLocateMinigame = (gameId: string) => {
+    if (!fileSystem || gameState.locatedMinigames.includes(gameId)) return;
+    if (!findNodeById(fileSystem, `${gameId}_${gameState.currentIteration}`)) return;
+    const cost = locateCostFor(gameState.currentIteration);
+    if (gameState.dataKB < cost) return;
+    setGameState(prev =>
+      prev.locatedMinigames.includes(gameId) || prev.dataKB < cost
+        ? prev
+        : {
+            ...prev,
+            dataKB: prev.dataKB - cost,
+            locatedMinigames: [...prev.locatedMinigames, gameId],
+          }
+    );
+  };
+  const handleLocateTrail = () => {
+    if (!fileSystem) return;
+    const iteration = gameState.currentIteration;
+    if (gameState.locatedTrail.includes(iteration)) return;
+    if (!findNodeById(fileSystem, archivistFileIdFor(iteration))) return;
+    const cost = trailLocateCostFor(iteration);
+    if (gameState.dataKB < cost) return;
+    setGameState(prev =>
+      prev.locatedTrail.includes(iteration) || prev.dataKB < cost
+        ? prev
+        : {
+            ...prev,
+            dataKB: prev.dataKB - cost,
+            locatedTrail: [...prev.locatedTrail, iteration],
+          }
+    );
+  };
+  const handleTrailSolved = (iteration: number) => {
+    setGameState(prev =>
+      prev.unscrambledTrail.includes(iteration)
+        ? prev
+        : { ...prev, unscrambledTrail: [...prev.unscrambledTrail, iteration] }
+    );
+  };
+  const handleRevealLevel = (level: number) => {
+    if (!fileSystem || gameState.revealedDepths.includes(level)) return;
+    const cost = revealCostFor(fileSystem, level, gameState.exploredDirIds);
+    if (gameState.autoMarkCount < cost) return;
+    setGameState(prev =>
+      prev.revealedDepths.includes(level) || prev.autoMarkCount < cost
+        ? prev
+        : {
+            ...prev,
+            autoMarkCount: prev.autoMarkCount - cost,
+            revealedDepths: [...prev.revealedDepths, level],
+          }
+    );
+  };
+
+  const handleToggleBoost = (multiplier: BoostMultiplier) => {
+    boostLastTickRef.current = nowMs();
     setGameState(prev => {
       if (prev.activeBoostMultiplier === multiplier) {
         return { ...prev, activeBoostMultiplier: null };
@@ -534,28 +942,25 @@ const App: React.FC = () => {
   };
 
   const handleSetWallpaper = (dataUrl: string | undefined) => {
+    saveWallpaper(dataUrl);
     setGameState(prev => ({ ...prev, wallpaper: dataUrl }));
+    if (dataUrl) unlockAchievement('decorator');
     addNotification(
-      "DISPLAY SETTINGS",
-      dataUrl ? "Wallpaper updated successfully." : "Wallpaper reset to default.",
+      'DISPLAY SETTINGS',
+      dataUrl ? 'Wallpaper updated successfully.' : 'Wallpaper reset to default.',
       NotificationType.SUCCESS
     );
   };
 
-  // --- CORE SETTINGS & SAVE HANDLING ---
-
   const rebootSystem = (targetMode: SaveMode, options?: { skipSave?: boolean }) => {
-    // Optionally skip saving current state (useful for session reset)
     if (!options?.skipSave) {
-      // Save Current State before switching
-      saveGame(gameState, saveMode);
+      flushSave();
+      saveGame(gameStateRef.current, saveMode);
     }
 
-    // Switch Mode
     setSaveMode(targetMode);
     setSaveModeState(targetMode);
 
-    // Initialize New State
     setWindows([]);
     setCascadeCount(0);
     setIsBooting(true);
@@ -563,29 +968,30 @@ const App: React.FC = () => {
   };
 
   const handleUpdateSeed = (newSeed: number) => {
-    // "Reset everything beyond factory" -> Wipe all storage
-    factoryReset();
+    if (!Number.isFinite(newSeed) || !Number.isInteger(newSeed)) return;
+    backupSlot('NORMAL');
+    backupSlot('DEV');
 
-    // Re-initialize with new seed but default everything else (NORMAL mode behavior)
     const newState: GameState = {
       ...INITIAL_GAME_STATE,
+      shortcuts: INITIAL_GAME_STATE.shortcuts.map(s => ({ ...s })),
+      stats: { ...INITIAL_GAME_STATE.stats },
+      boostBank: { ...INITIAL_GAME_STATE.boostBank },
       runSeed: newSeed,
     };
 
-    // Force Normal Mode since we wiped Dev state
     setSaveMode('NORMAL');
     setSaveModeState('NORMAL');
 
     setGameState(newState);
+    setExplorerDirId('root');
+    setTeleportTarget(null);
 
-    // Regenerate standard FS (Root false)
     const rawFS = generateFileSystem(newState.currentIteration, newSeed, false);
     setFileSystem(rawFS);
 
-    // Save immediately to NORMAL slot
     saveGame(newState, 'NORMAL');
 
-    // Trigger Reboot
     setWindows([]);
     setCascadeCount(0);
     setIsBooting(true);
@@ -594,30 +1000,49 @@ const App: React.FC = () => {
   const handleImportSave = (importedState: GameState) => {
     const targetMode = importedState.isDevModeEnabled ? 'DEV' : 'NORMAL';
 
-    // Save imported state to disk immediately
+    backupSlot(targetMode);
     saveGame(importedState, targetMode);
 
-    // Force switch to target mode if different
     if (saveMode !== targetMode) {
       setSaveMode(targetMode);
       setSaveModeState(targetMode);
     }
 
-    // Load state into memory
     setGameState(importedState);
 
-    // Regenerate world
-    const rawFS = generateFileSystem(importedState.currentIteration, importedState.runSeed, importedState.isAscendRootEnabled);
-    const filteredFS = filterConsumedNodes(rawFS, importedState.consumedIds || []);
-    const finalFS = applyModifications(filteredFS, importedState.modifiedNodes || {});
-    setFileSystem(finalFS);
+    try {
+      const rawFS = generateFileSystem(
+        importedState.currentIteration,
+        importedState.runSeed,
+        importedState.isAscendRootEnabled
+      );
+      const finalFS = prepareFileSystem(
+        rawFS,
+        importedState.consumedIds || [],
+        importedState.modifiedNodes || {}
+      );
+      setFileSystem(finalFS);
+    } catch {
+      restoreBackup(targetMode);
+      addNotification(
+        'IMPORT FAILED',
+        'Save rebuilt into an invalid world.',
+        NotificationType.ERROR
+      );
+      return;
+    }
+    setExplorerDirId('root');
+    setTeleportTarget(null);
 
-    // Reboot
     setWindows([]);
     setCascadeCount(0);
     setIsBooting(true);
 
-    addNotification("IMPORT SUCCESSFUL", `Loaded save data. Mode: ${targetMode}`, NotificationType.SUCCESS);
+    addNotification(
+      'IMPORT SUCCESSFUL',
+      `Loaded save data. Mode: ${targetMode}`,
+      NotificationType.SUCCESS
+    );
   };
 
   const handleToggleDevMode = () => {
@@ -631,7 +1056,6 @@ const App: React.FC = () => {
 
       saveGame(devState, 'DEV');
       rebootSystem('DEV');
-
     } else {
       setGameState(prev => {
         const next = !prev.isDevModeEnabled;
@@ -663,8 +1087,7 @@ const App: React.FC = () => {
         }
 
         const rawFS = generateFileSystem(prev.currentIteration, prev.runSeed, next);
-        const filteredFS = filterConsumedNodes(rawFS, prev.consumedIds || []);
-        const finalFS = applyModifications(filteredFS, prev.modifiedNodes || {});
+        const finalFS = prepareFileSystem(rawFS, prev.consumedIds || [], prev.modifiedNodes || {});
         setFileSystem(finalFS);
 
         return { ...prev, isAscendRootEnabled: next };
@@ -675,38 +1098,59 @@ const App: React.FC = () => {
   const handleResetSession = () => {
     resetSave(saveMode);
     rebootSystem(saveMode, { skipSave: true });
-    addNotification("SESSION RESET", "Local state cleared.", NotificationType.WARNING);
-  };
-
-  const handleFactoryReset = () => {
-    factoryReset();
-    window.location.reload();
+    addNotification('SESSION RESET', 'Local state cleared.', NotificationType.WARNING);
   };
 
   const handleSwitchToNormal = () => {
     rebootSystem('NORMAL');
   };
 
-  // ---
-
   const handleAscendStart = () => {
+    if (!getGateStatus(gameState).complete) return;
     setWindows([]);
     setCascadeCount(0);
     setIsAscending(true);
   };
 
+  const handlePayFuel = () => {
+    setGameState(prev => {
+      const fee = fuelFeeKB(prev.currentIteration);
+      if (prev.fuelPaidIter === prev.currentIteration || prev.dataKB < fee) return prev;
+      return {
+        ...prev,
+        dataKB: prev.dataKB - fee,
+        fuelPaidIter: prev.currentIteration,
+      };
+    });
+    addNotification('FUEL LOADED', 'The handoff accepts your data.', NotificationType.SUCCESS);
+  };
+
   const handleAscendComplete = () => {
-    const nextIteration = gameState.currentIteration + 1;
-    const newScore = Math.max(gameState.highScore, nextIteration);
+    if (!getGateStatus(gameStateRef.current).complete) return;
+    const nextIteration = gameStateRef.current.currentIteration + 1;
+    const newScore = Math.max(gameStateRef.current.highScore, nextIteration);
+
+    if (nextIteration >= 2) unlockAchievement('letting_go');
+    if (nextIteration >= 3) unlockAchievement('regular');
+    if (nextIteration >= 5) unlockAchievement('veteran');
+    if (nextIteration >= 7) unlockAchievement('beyond_six');
+    if (nextIteration >= 10) unlockAchievement('decade_walker');
+    if (nextIteration === 2) seeLore('lore_decay');
+    seeLore('lore_ascend');
 
     setGameState(prev => {
       const nextState = {
         ...prev,
         currentIteration: nextIteration,
         highScore: newScore,
-        activeBoostMultiplier: null, // Reset active boost on ascend
-        consumedIds: [], // Reset consumed list for new iteration
-        modifiedNodes: {} // Reset modifications for new iteration
+        activeBoostMultiplier: null,
+        consumedIds: [],
+        modifiedNodes: {},
+        revealedDepths: [...INITIAL_GAME_STATE.revealedDepths],
+        exploredDirIds: [],
+        triangulated: {},
+        locatedMinigames: [],
+        stats: { ...prev.stats, ascensions: prev.stats.ascensions + 1 },
       };
 
       const rawFS = generateFileSystem(nextIteration, prev.runSeed, prev.isAscendRootEnabled);
@@ -715,39 +1159,49 @@ const App: React.FC = () => {
       return nextState;
     });
 
+    setExplorerDirId('root');
     setIsAscending(false);
     setIsBooting(true);
   };
 
   const handleBootComplete = useCallback(() => {
     setIsBooting(false);
-  }, []);
+    unlockAchievement('cold_boot');
+    seeLore('lore_boot');
+    seeLore('lore_build');
+  }, [unlockAchievement, seeLore]);
 
   const handleOpenItem = (file: FileNode) => {
     if (!file.packageContent) return;
+    if (gameStateRef.current.consumedIds.includes(file.id)) return;
 
     const { type, value, multiplier } = file.packageContent;
-    let msg = "";
+    let msg = '';
 
     if (file.type === FileType.MODULE) {
-
-      let effectiveType = type;
-      let effectiveValue = value;
-
-      if (type === 'AUTOMINER_SPEED' && gameState.autoMinerInterval <= AUTOMINER_MIN_INTERVAL) {
-        effectiveType = 'AUTOMINER_POWER';
-        effectiveValue = Math.floor(Math.random() * 3) + 1; // 1-3
-      }
+      const atFloor =
+        type === 'AUTOMINER_SPEED' &&
+        gameStateRef.current.autoMinerInterval <= AUTOMINER_MIN_INTERVAL;
+      const effectiveType = atFloor ? 'AUTOMINER_POWER' : type;
+      const effectiveValue = atFloor ? 2 : value;
 
       setGameState(prev => {
+        if (prev.consumedIds.includes(file.id)) return prev;
         const newState = {
           ...prev,
-          consumedIds: [...prev.consumedIds, file.id]
+          consumedIds: [...prev.consumedIds, file.id],
+          stats: {
+            ...prev.stats,
+            modulesInstalled: prev.stats.modulesInstalled + 1,
+          },
         };
         if (effectiveType === 'AUTOMINER_POWER') {
           newState.autoMinerData += effectiveValue;
         } else if (effectiveType === 'AUTOMINER_SPEED') {
-          newState.autoMinerInterval = Math.max(AUTOMINER_MIN_INTERVAL, prev.autoMinerInterval - effectiveValue);
+          newState.autoMinerInterval = Math.max(
+            AUTOMINER_MIN_INTERVAL,
+            prev.autoMinerInterval - effectiveValue
+          );
         }
         return newState;
       });
@@ -762,13 +1216,20 @@ const App: React.FC = () => {
         msg = `AutoMiner: -${effectiveValue}ms Interval`;
       }
 
-      addNotification("MODULE INSTALLED", msg, NotificationType.SUCCESS);
-
+      addNotification('MODULE INSTALLED', msg, NotificationType.SUCCESS);
+      unlockAchievement('new_hardware');
+      if (gameState.stats.modulesInstalled + 1 >= 10) unlockAchievement('overclocked');
+      seeLore('lore_modules');
     } else {
       setGameState(prev => {
+        if (prev.consumedIds.includes(file.id)) return prev;
         const newState = {
           ...prev,
-          consumedIds: [...prev.consumedIds, file.id]
+          consumedIds: [...prev.consumedIds, file.id],
+          stats: {
+            ...prev.stats,
+            packagesOpened: prev.stats.packagesOpened + 1,
+          },
         };
         if (type === 'DATA') {
           newState.dataKB += value;
@@ -779,13 +1240,16 @@ const App: React.FC = () => {
         } else if (type === 'BOOST' && multiplier) {
           newState.boostBank = {
             ...prev.boostBank,
-            [multiplier]: (prev.boostBank[multiplier] || 0) + value
+            [multiplier]: (prev.boostBank[multiplier] || 0) + value,
           };
           msg = `+${(value / 1000).toFixed(1)}s of x${multiplier} Boost`;
         }
         return newState;
       });
-      addNotification("PACKAGE DECRYPTED", msg, NotificationType.INFO);
+      addNotification('PACKAGE DECRYPTED', msg, NotificationType.INFO);
+      unlockAchievement('supply_run');
+      if (gameState.stats.packagesOpened + 1 >= 5) unlockAchievement('quartermaster');
+      seeLore('lore_packages');
     }
 
     handleDeleteNode(file.id);
@@ -796,17 +1260,184 @@ const App: React.FC = () => {
       handleOpenItem(file);
       return;
     }
-    if (file.extension === FileExtension.EXE && (file.name.toLowerCase() === 'ascend' || file.content === 'EXECUTE_ASCENSION')) {
+    seeFile(file);
+    const minigameId = ['pong', 'dino', 'tictactoe', 'snake', 'memory'].find(
+      id => file.name.toLowerCase() === id || file.content === `EXECUTE_${id.toUpperCase()}`
+    );
+    if (file.extension === FileExtension.EXE && minigameId) {
+      openWindow(AppId.MINIGAME, { gameId: minigameId });
+    } else if (
+      file.extension === FileExtension.EXE &&
+      (file.name.toLowerCase() === 'ascend' || file.content === 'EXECUTE_ASCENSION')
+    ) {
+      if (fileSystem) revealGatePath(file.id, fileSystem);
       openWindow(AppId.ASCENSION, file);
-    } else if (file.extension === FileExtension.TXT) {
+    } else if (file.extension === FileExtension.TXT && file.name.toLowerCase() === 'egg') {
+      openWindow(AppId.EGG, file);
+    } else if (file.extension === FileExtension.TXT || file.extension === FileExtension.ZIP) {
       openWindow(AppId.TEXT_VIEWER, file);
     }
   };
 
-  // --- Render Phases ---
+  const handleReadFile = useCallback(
+    (file: FileNode) => {
+      seeFile(file);
+    },
+    [seeFile]
+  );
+
+  const handleUnlockedFile = (file: FileNode) => {
+    if (gameStateRef.current.unlockedFileIds.includes(file.id)) return;
+    if (file.secretId === 'ghost') unlockAchievement('ghost');
+    seeFile(file);
+    setWindows(prev =>
+      prev.filter(w => !(w.appId === AppId.TEXT_VIEWER && (w.data as FileNode)?.id === file.id))
+    );
+    const isVault = file.name.endsWith('.zip') || file.id.startsWith('vault_');
+    if (isVault) {
+      setGameState(prev => {
+        if (prev.unlockedFileIds.includes(file.id)) return prev;
+        return {
+          ...prev,
+          passes: Math.min(prev.passes + 1, 3),
+          unlockedFileIds: [...prev.unlockedFileIds, file.id],
+        };
+      });
+    } else {
+      setGameState(prev =>
+        prev.unlockedFileIds.includes(file.id)
+          ? prev
+          : { ...prev, unlockedFileIds: [...prev.unlockedFileIds, file.id] }
+      );
+    }
+    addNotification(
+      isVault ? 'VAULT DECRYPTED' : 'CACHE DECRYPTED',
+      isVault
+        ? 'Minigame pass stashed. Redeem it from any minigame window.'
+        : 'Takeout recorded in Achievements.',
+      NotificationType.INFO
+    );
+  };
+
+  const handleNavigateDir = (dir: DirectoryNode) => {
+    setExplorerDirId(dir.id);
+    setGameState(prev =>
+      prev.exploredDirIds.includes(dir.id)
+        ? prev
+        : { ...prev, exploredDirIds: [...prev.exploredDirIds, dir.id] }
+    );
+    if (!dir.id.startsWith('cache_')) return;
+    seeLore('lore_cache');
+    const seen = gameState.loreSeen;
+    const order = [1, 2, 3, 4, 5].map(n => seen.indexOf(`lore_archivist_${n}`));
+    if (order.every(i => i !== -1) && order.every((v, i, a) => i === 0 || a[i - 1] < v)) {
+      if (discoverSecret('trail')) {
+        seeLore('lore_end');
+      }
+    } else {
+      addNotification(
+        'SEALED CACHE',
+        'The cache stays shut. Read the trail parts in order first.',
+        NotificationType.WARNING
+      );
+    }
+  };
+
+  const handleOffering = () => {
+    if (discoverSecret('offering')) {
+      seeLore('lore_offering');
+    } else {
+      addNotification('OFFERING', 'Already accepted.', NotificationType.INFO);
+    }
+  };
+
+  const handleRescanPenalty = () => {
+    seeLore('lore_penalty');
+  };
+
+  const handleProperties = (node: { id: string; name: string }) => {
+    if (node.name.toLowerCase() === 'ascend' || node.id.startsWith('ascend_exe_')) {
+      discoverSecret('properties');
+    }
+  };
+
+  const handleOpenCore = () => {
+    discoverSecret('core');
+    openWindow(AppId.CORE_SETTINGS);
+  };
+
+  const handleEggCrack = (rewardKB: number) => {
+    setGameState(prev => ({ ...prev, dataKB: prev.dataKB + rewardKB }));
+    discoverSecret('idol');
+  };
+
+  const handleMinigameWin = (gameId: string) => {
+    if (gameStateRef.current.arcadeWins[gameId] === gameStateRef.current.currentIteration) return;
+    setGameState(prev => {
+      if (prev.arcadeWins[gameId] === prev.currentIteration) return prev;
+      const wins = MINIGAMES.filter(
+        g => g.id === gameId || prev.arcadeWins[g.id] === prev.currentIteration
+      ).length;
+      if (wins <= 1) setTimeout(() => unlockAchievement('arcade_rookie'), 0);
+      if (wins >= MINIGAMES.length) setTimeout(() => unlockAchievement('arcade_master'), 0);
+      return {
+        ...prev,
+        arcadeWins: { ...prev.arcadeWins, [gameId]: prev.currentIteration },
+      };
+    });
+    addNotification(
+      'MINIGAME CLEARED',
+      'Score recorded for this iteration.',
+      NotificationType.SUCCESS
+    );
+  };
+
+  const handleRedeemPass = (gameId: string) => {
+    if (
+      gameStateRef.current.passes < 1 ||
+      gameStateRef.current.arcadeWins[gameId] === gameStateRef.current.currentIteration
+    )
+      return;
+    setGameState(prev => {
+      if (prev.passes < 1 || prev.arcadeWins[gameId] === prev.currentIteration) return prev;
+      return {
+        ...prev,
+        passes: prev.passes - 1,
+        arcadeWins: { ...prev.arcadeWins, [gameId]: prev.currentIteration },
+      };
+    });
+    addNotification(
+      'MINIGAME CLEARED',
+      'Score recorded for this iteration.',
+      NotificationType.SUCCESS
+    );
+  };
+
+  const handleOpenZip = () => {
+    unlockAchievement('secrets_zip');
+    addNotification(
+      'SECRETS.ZIP',
+      'Instructions recorded under Secrets.',
+      NotificationType.SUCCESS
+    );
+  };
+
+  const handleCopySummary = () => {
+    const summary = `ASCEND OS 100% — iteration ${gameState.currentIteration}, ${Object.keys(gameState.achievements).length} tasks, ${gameState.secretsFound.length} secrets, seed ${gameState.runSeed}`;
+    try {
+      const pending = navigator.clipboard?.writeText(summary);
+      pending?.catch(() => {});
+    } catch {}
+    addNotification('COPIED', summary, NotificationType.SUCCESS);
+  };
 
   if (isAscending) {
-    return <AscensionSequence currentIteration={gameState.currentIteration} onComplete={handleAscendComplete} />;
+    return (
+      <AscensionSequence
+        currentIteration={gameState.currentIteration}
+        onComplete={handleAscendComplete}
+      />
+    );
   }
 
   if (isBooting) {
@@ -816,34 +1447,41 @@ const App: React.FC = () => {
   return (
     <div
       className={`w-full h-screen relative overflow-hidden font-sans text-gray-100 ${gameState.wallpaper ? 'bg-gray-900' : 'bg-animated'}`}
-      style={gameState.wallpaper ? {
-        backgroundImage: `url(${gameState.wallpaper})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat'
-      } : undefined}
+      style={
+        gameState.wallpaper
+          ? {
+              backgroundImage: `url(${gameState.wallpaper})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              backgroundRepeat: 'no-repeat',
+            }
+          : undefined
+      }
       onContextMenu={handleDesktopContextMenu}
     >
-
-      {/* HUD Elements: Title & Iteration (Always visible, Top Right) */}
       <div className="absolute top-10 right-10 text-right opacity-30 select-none pointer-events-none z-0">
         <h1 className="text-6xl font-black tracking-tighter text-white drop-shadow-lg">ASCEND</h1>
-        <p className="text-xl font-mono mt-2 text-white drop-shadow-md">ITERATION: {gameState.currentIteration.toString().padStart(3, '0')}</p>
-        {saveMode === 'DEV' && <p className="text-xs text-red-500 font-bold tracking-widest mt-1">DEV MODE ACTIVE</p>}
+        <p className="text-xl font-mono mt-2 text-white drop-shadow-md">
+          ITERATION: {gameState.currentIteration.toString().padStart(3, '0')}
+        </p>
+        {saveMode === 'DEV' && (
+          <p className="text-xs text-red-500 font-bold tracking-widest mt-1">DEV MODE ACTIVE</p>
+        )}
       </div>
 
-      {/* Default Wallpaper Elements (Center Logo) */}
       {!gameState.wallpaper && (
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-5 pointer-events-none">
+        <div
+          title="Terminal"
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[1] opacity-5 pointer-events-none"
+        >
           <Terminal size={400} />
         </div>
       )}
 
-      {/* Desktop Icons */}
       <div className="absolute inset-0 z-0">
         {(gameState.shortcuts || []).map(sc => (
           <DesktopIcon
-            key={sc.id}
+            key={`${sc.id}_${desktopNonce}`}
             shortcut={sc}
             onOpen={openWindow}
             onMove={handleMoveShortcut}
@@ -852,13 +1490,13 @@ const App: React.FC = () => {
         ))}
       </div>
 
-      {/* Windows Layer */}
       {windows.map(win => (
         <WindowFrame
           key={win.id}
           windowState={win}
           onClose={closeWindow}
           onMinimize={minimizeWindow}
+          onToggleMaximize={toggleMaximize}
           onFocus={focusWindow}
           onMove={moveWindow}
           onContextMenu={handleContextMenu}
@@ -866,6 +1504,7 @@ const App: React.FC = () => {
           {win.appId === AppId.EXPLORER && fileSystem && (
             <Explorer
               root={fileSystem}
+              windowId={win.id}
               onOpenFile={handleOpenFile}
               onContextMenu={handleContextMenu}
               onUpdateNode={handleUpdateNode}
@@ -876,10 +1515,75 @@ const App: React.FC = () => {
               onToggleAutoMark={handleToggleAutoMark}
               onConsumeAutoMark={handleConsumeAutoMark}
               onShowNotification={addNotification}
+              onNavigateDir={handleNavigateDir}
+              onOffering={handleOffering}
+              onRescanPenalty={handleRescanPenalty}
+              onProperties={handleProperties}
+              teleportTarget={teleportTarget}
+              currentIteration={gameState.currentIteration}
             />
           )}
           {win.appId === AppId.TEXT_VIEWER && (
-            <TextViewer file={win.data} />
+            <TextViewer
+              key={(win.data as FileNode)?.id ?? win.id}
+              file={win.data as FileNode}
+              onUnlocked={handleUnlockedFile}
+              onRead={handleReadFile}
+              trail={(() => {
+                const file = win.data as FileNode;
+                if (!file || !isTrailLocateFileId(file.id)) return undefined;
+                const iter = trailIterationOf(file.id);
+                if (iter <= 0 || iter !== gameState.currentIteration) return undefined;
+                const dirNode = fileSystem
+                  ? findNodeById(fileSystem, archivistFileIdFor(iter))
+                  : null;
+                const dirId = dirNode?.parentId ?? null;
+                if (!dirId) return undefined;
+                return {
+                  scrambled: scrambledTrailWords(gameState.runSeed, iter),
+                  answers: trailSetFor(gameState.runSeed, iter),
+                  solved: gameState.unscrambledTrail.includes(iter),
+                  reveal: `> DIRECTORY: ${dirId}\n> Location of the file.`,
+                  onSolve: () => handleTrailSolved(iter),
+                };
+              })()}
+            />
+          )}
+          {win.appId === AppId.EGG && (
+            <EggHunt
+              alreadyCracked={gameState.secretsFound.includes('idol')}
+              onCrack={handleEggCrack}
+            />
+          )}
+          {win.appId === AppId.MINIGAME && (
+            <Minigames
+              gameId={(win.data as { gameId?: string })?.gameId ?? 'pong'}
+              wins={gameState.arcadeWins}
+              currentIteration={gameState.currentIteration}
+              passes={gameState.passes}
+              onWin={handleMinigameWin}
+              onRedeem={handleRedeemPass}
+            />
+          )}
+          {win.appId === AppId.CARTOGRAPHER && fileSystem && (
+            <Cartographer
+              root={fileSystem}
+              revealedDepths={gameState.revealedDepths}
+              exploredDirIds={gameState.exploredDirIds}
+              explorerDirId={explorerDirId}
+              autoMarkCount={gameState.autoMarkCount}
+              onTeleport={handleTeleport}
+              onRevealLevel={handleRevealLevel}
+            />
+          )}
+          {win.appId === AppId.RADAR && fileSystem && (
+            <Radar
+              root={fileSystem}
+              iteration={gameState.currentIteration}
+              dataKB={gameState.dataKB}
+              triangulated={gameState.triangulated}
+              onTriangulate={handleTriangulate}
+            />
           )}
           {win.appId === AppId.CLICKER && (
             <Clicker
@@ -899,6 +1603,7 @@ const App: React.FC = () => {
               onPurchaseUpgrade={handlePurchaseUpgrade}
               onPurchaseBoost={handlePurchaseBoost}
               onPurchaseAutoMark={handlePurchaseAutoMark}
+              onUnlockTool={handleUnlockTool}
             />
           )}
           {win.appId === AppId.PERSONALIZE && (
@@ -907,8 +1612,14 @@ const App: React.FC = () => {
               onSetWallpaper={handleSetWallpaper}
             />
           )}
-          {win.appId === AppId.HELP && (
-            <SystemHelp onOpenCore={() => openWindow(AppId.CORE_SETTINGS)} />
+          {win.appId === AppId.HELP && <SystemHelp onOpenCore={handleOpenCore} />}
+          {win.appId === AppId.ACHIEVEMENTS && (
+            <Achievements
+              gameState={gameState}
+              progress={progress}
+              zipEarned={zipEarned}
+              onOpenZip={handleOpenZip}
+            />
           )}
           {win.appId === AppId.CORE_SETTINGS && (
             <CoreSettings
@@ -924,31 +1635,19 @@ const App: React.FC = () => {
             />
           )}
           {win.appId === AppId.ASCENSION && (
-            <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-gray-950 select-none">
-              <AlertTriangle className="w-20 h-20 text-red-500 mb-6 animate-pulse" />
-              <h2 className="text-2xl font-bold text-red-500 mb-4 tracking-wider">SYSTEM WARNING</h2>
-              <div className="bg-red-900/10 border border-red-900/30 p-4 rounded-lg mb-8 max-w-md">
-                <p className="text-red-200 font-mono text-sm leading-relaxed">
-                  ASCENSION PROTOCOL DETECTED.<br />
-                  EXECUTING WILL RESET LOCAL DIRECTORY STRUCTURE.<br />
-                  SYSTEM COMPLEXITY WILL INCREASE.
-                </p>
-              </div>
-              <div className="flex gap-6">
-                <button
-                  onClick={() => closeWindow(win.id)}
-                  className="px-6 py-3 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono text-sm transition-colors border border-gray-700"
-                >
-                  ABORT
-                </button>
-                <button
-                  onClick={() => handleAscendStart()}
-                  className="px-6 py-3 rounded bg-red-600 hover:bg-red-500 text-white font-mono font-bold text-sm transition-all shadow-lg shadow-red-900/50 border border-red-400"
-                >
-                  CONFIRM UPLOAD
-                </button>
-              </div>
-            </div>
+            <AscensionGate
+              gameState={gameState}
+              root={fileSystem}
+              dataKB={gameState.dataKB}
+              locatedMinigames={gameState.locatedMinigames}
+              locatedTrail={gameState.locatedTrail}
+              onLocate={handleLocateMinigame}
+              onLocateTrail={handleLocateTrail}
+              onShowLocation={file => openWindow(AppId.TEXT_VIEWER, file)}
+              onPayFuel={handlePayFuel}
+              onConfirm={handleAscendStart}
+              onAbort={() => closeWindow(win.id)}
+            />
           )}
         </WindowFrame>
       ))}
@@ -960,11 +1659,13 @@ const App: React.FC = () => {
         onFocusWindow={focusWindow}
         onCloseWindow={closeWindow}
         onMinimize={minimizeWindow}
+        onToggleMaximize={toggleMaximize}
         onContextMenu={handleContextMenu}
         onPinToDesktop={handlePinToDesktop}
+        unlockedTools={gameState.unlockedTools}
+        progress={progress}
       />
 
-      {/* Global Context Menu */}
       {contextMenu.isOpen && (
         <ContextMenu
           x={contextMenu.x}
@@ -974,10 +1675,46 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* Notification Layer */}
       <NotificationSystem notifications={notifications} onDismiss={dismissNotification} />
 
-      {/* Scanline Overlay */}
+      {showZipReward && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/70">
+          <div className="max-w-md w-full bg-gray-900 border border-purple-500/50 rounded-lg p-6 font-mono text-center shadow-[0_0_60px_rgba(168,85,247,0.35)]">
+            <p className="text-xs tracking-[0.3em] text-purple-400">ARCHIVIST TRANSMISSION</p>
+            <h2 className="text-xl font-bold text-white mt-2">secrets.zip is yours</h2>
+            <p className="text-sm text-gray-400 mt-2">
+              You finished every task on the checklist. The hidden instructions wait in the
+              Achievements app under Secrets.
+            </p>
+            <div className="mt-4 flex gap-3">
+              <button
+                onClick={() => {
+                  dismissZipReward();
+                  openWindow(AppId.ACHIEVEMENTS);
+                }}
+                className="flex-1 px-4 py-2 rounded bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold"
+              >
+                OPEN SECRETS
+              </button>
+              <button
+                onClick={() => dismissZipReward()}
+                className="flex-1 px-4 py-2 rounded border border-gray-700 text-gray-300 text-sm"
+              >
+                LATER
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showThankYou && (
+        <ThankYouLetter
+          gameState={gameState}
+          onClose={() => dismissThankYou()}
+          onCopy={handleCopySummary}
+        />
+      )}
+
       <div className="scanline"></div>
     </div>
   );

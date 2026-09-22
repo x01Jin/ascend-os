@@ -1,64 +1,36 @@
-# Procedural Generation
+# Procedural generation
 
-The heart of Ascend is its deterministic procedural generation algorithm located in `services/generator.ts`.
+`services/generator.ts` builds the tree deterministically from `runSeed + iteration * 1337`. Same seed and iteration always produce the same layout. Manual seed injection wipes state and starts a fresh Normal-mode run. The PRNG is integer-only (mulberry32) with a fixed-draw shuffle, so generation is identical on every JS engine.
 
-## Seeding
+## The winning path
 
-The file system is generated using a pseudo-random number generator seeded by the playthrough seed combined with the current iteration number:
-`Seed = runSeed + (iteration * 1337)`
+1. Root starts at `root`.
+2. Depth: `5 + ceil(iteration * 0.8)`.
+3. Each directory on the chain carries `isWinningPath = true`.
+4. `ascend.exe` lands in the final directory. With Root Ascension enabled it spawns in root instead.
 
-`runSeed` is assigned once when a save slot is created (`Date.now()`) and is kept across Ascensions. This ensures that if a player reloads the game on Iteration 5, the directory structure for Iteration 5 remains exactly the same, while different playthroughs get different layouts.
+## Distractors
 
-### Manual Seeding
+Every node on the winning path grows siblings: `randInt(3, 5 + floor(iteration / 2))`. Folder siblings recurse to `junkMaxDepth = 2 + floor(iteration / 5)`. Junk folders recurse with density `randInt(2, 4 + floor(iteration / 3))`.
 
-Players can manually inject a specific seed via the **Core Settings** application. This allows users to share interesting seeds or replay specific file system layouts. Injecting a seed forces a complete factory reset of the current state to ensure the generation is clean.
+Per slot:
 
-## The Winning Path
+- Roll above 0.95: hardware module (~5%).
+- Roll above 0.82: supply drop (~13%).
+- Otherwise a folder (60-70% depending on depth) or a `.txt` manifest log carrying the LOG-03 checksum pair.
 
-The generator first creates a guaranteed path to the objective.
+Folder names come from a fixed tech-word list with numeric suffixes.
 
-1. **Root**: Starts at `root`.
-2. **Depth Calculation**: The depth of the winning path is calculated: `5 + ceil(iteration * 0.8)`.
-3. **Path Construction**: A chain of directories is created. Each directory is flagged internally with `isWinningPath = true`.
-4. **Target**: `ascend.exe` is placed in the final directory of this chain.
+## Packages and modules
 
-## Distractors (Junk)
+`.pkg` loot: 60% Data (8-14 MB), 30% Auto-Markers (3-6), 10% Overclock (1-5 s into a random x2-x5 bank).
 
-Once the winning path is built, the generator populates the tree with "noise" to hide the path.
+`.mod` loot: 70% Power (`+1` to `+5` KB/tick), 30% Speed (`-10` to `-100` ms, floored at 300 ms). A Speed Module drawn at the floor converts to `+1` to `+3` KB/tick Power instead.
 
-1. **Siblings**: At every node along the winning path, a number of sibling nodes are generated.
-   - Count: `randInt(3, 5 + floor(iteration / 2))`
-2. **Recursive Structure**: If a sibling is a folder, it recursively generates its own children up to a calculated `junkMaxDepth`.
-   - `junkMaxDepth`: `2 + floor(iteration / 5)`
-3. **Content**:
-   - Folder names are chosen from a list of tech-sounding terms (System, Bin, Void, Matrix, etc.).
-   - Files are generated with random extensions and lore-fragment content.
+## Puzzle nodes
 
-## Supply Drops (Packages)
+Ghost margins, hold vaults, five arcade cabinets, archivist trail parts, terminal host logs and margins, cache manifests, node listings, tally and lock notes, and the iteration 5+ buried cache scatter across off-path folders, one host each, deterministically per seed and iteration. Ghost passwords read as paths (`/holds/NN/README`, naming the next layer's hold). The winning path carries only `ascend.exe`.
 
-Occasionally, the generator spawns encrypted **Package** files (`.pkg`) instead of standard files or folders.
+## File types
 
-- **Spawn Rate**: Approximately 15% chance per slot in junk structures and sibling nodes.
-- **Appearance**: Represented by an orange package icon in the Explorer.
-- **Loot Table**:
-  - **Data Cache (60%)**: Contains a lump sum of Data (5-10 MB).
-  - **Auto-Mark Bundle (30%)**: Contains 5-10 Auto-Markers.
-  - **Overclock Chip (10%)**: Adds time (1-5s) to a random Overclock Bank (x2 - x5).
-
-## Hardware Modules
-
-Rare components for the Auto-Miner can be found as encrypted **Module** files (`.mod`).
-
-- **Spawn Rate**: Approximately 11.5% chance per slot.
-- **Appearance**: Represented by a green upload icon in the Explorer.
-- **Loot Table**:
-  - **Power Module (70%)**: Increases mining power (+1 to +5 KB/tick).
-  - **Speed Module (30%)**: Reduces mining interval (-10ms to -100ms).
-
-## File Types
-
-- **Directories**: Can contain other files or directories.
-- **Text Files (.txt)**: contain procedurally generated log dumps and lore fragments.
-- **Packages (.pkg)**: Encrypted supply drops containing resources.
-- **Modules (.mod)**: Encrypted hardware upgrades for the Auto-Miner.
-- **Executables (.exe)**: Currently only `ascend.exe` triggers system events.
+- Directories, `.txt` logs, `.pkg` supply drops, `.mod` hardware, `.exe` launchers (`ascend.exe` plus one per arcade game), `.zip` vaults.

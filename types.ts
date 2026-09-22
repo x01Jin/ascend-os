@@ -2,33 +2,44 @@ export enum FileType {
   FILE = 'FILE',
   FOLDER = 'FOLDER',
   PACKAGE = 'PACKAGE',
-  MODULE = 'MODULE'
+  MODULE = 'MODULE',
 }
 
 export enum FileExtension {
   TXT = 'txt',
   EXE = 'exe',
   PKG = 'pkg',
-  MOD = 'mod'
+  MOD = 'mod',
+  ZIP = 'zip',
 }
 
 export interface PackageContent {
   type: 'DATA' | 'AUTOMARK' | 'BOOST' | 'AUTOMINER_POWER' | 'AUTOMINER_SPEED';
   value: number;
-  multiplier?: number;
+  multiplier?: BoostMultiplier;
 }
+
+export type BoostMultiplier = 2 | 3 | 4 | 5;
+
+export type MarkKind = 'manual' | 'auto' | 'gate';
 
 export interface FileNode {
   id: string;
   name: string;
   type: FileType.FILE | FileType.PACKAGE | FileType.MODULE;
   extension: FileExtension;
-  content: string; // Text content or special instructions for EXE
+  content: string;
   packageContent?: PackageContent;
   parentId: string | null;
   isMarked?: boolean;
-  isWinningPath?: boolean; // True if this file is ascend.exe
-  isScanned?: boolean;     // True if revealed by signal tracer
+  markKind?: MarkKind;
+  isWinningPath?: boolean;
+  isScanned?: boolean;
+  password?: string;
+  secretId?: string;
+  loreId?: string;
+  loreExtra?: string[];
+  special?: boolean;
 }
 
 export interface DirectoryNode {
@@ -38,11 +49,18 @@ export interface DirectoryNode {
   children: (FileNode | DirectoryNode)[];
   parentId: string | null;
   isMarked?: boolean;
-  isWinningPath?: boolean; // True if this folder leads to ascend.exe
-  isScanned?: boolean;     // True if revealed by signal tracer
+  markKind?: MarkKind;
+  isWinningPath?: boolean;
+  isScanned?: boolean;
 }
 
 export type FileSystemNode = FileNode | DirectoryNode;
+
+export interface TeleportTarget {
+  dirId: string;
+  nonce: number;
+  windowId: string | null;
+}
 
 export enum AppId {
   EXPLORER = 'explorer',
@@ -52,7 +70,12 @@ export enum AppId {
   ASCENSION = 'ascension',
   UPDATES = 'updates',
   PERSONALIZE = 'personalize',
-  CORE_SETTINGS = 'core_settings'
+  CORE_SETTINGS = 'core_settings',
+  ACHIEVEMENTS = 'achievements',
+  MINIGAME = 'arcade',
+  CARTOGRAPHER = 'cartographer',
+  RADAR = 'radar',
+  EGG = 'egg',
 }
 
 export interface DesktopShortcut {
@@ -66,38 +89,64 @@ export interface DesktopShortcut {
 export interface NodeModification {
   name?: string;
   isMarked?: boolean;
+  markKind?: MarkKind;
   isScanned?: boolean;
+}
+
+export interface GameStats {
+  totalMinedKB: number;
+  scans: number;
+  ascensions: number;
+  packagesOpened: number;
+  modulesInstalled: number;
+  logoClicks: number;
 }
 
 export interface GameState {
   currentIteration: number;
   highScore: number;
-  dataKB: number; // Currency in Kilobytes (Renamed from storageKB)
+  dataKB: number;
   shortcuts: DesktopShortcut[];
-  wallpaper?: string; // Base64 string of the background image
-  
-  // Upgrades & Boosts
-  efficiencyLevel: number; // +5KB per level
-  
-  // New Boost System
-  boostBank: Record<number, number>; // Multiplier -> Milliseconds remaining
-  activeBoostMultiplier: number | null; // Currently active multiplier
+  wallpaper?: string;
 
-  autoMarkCount: number; // Amount of auto-marks available
-  isAutoMarkEnabled: boolean; // Toggle state for Explorer
+  efficiencyLevel: number;
 
-  // Auto Miner Stats
-  autoMinerData: number; // KB per tick
-  autoMinerInterval: number; // ms per tick
+  boostBank: Record<BoostMultiplier, number>;
+  activeBoostMultiplier: BoostMultiplier | null;
 
-  // Randomness & Persistence
-  runSeed: number; // Random seed for this playthrough to ensure unique start
-  consumedIds: string[]; // List of consumed/deleted file IDs to prevent refresh exploits
-  modifiedNodes: Record<string, NodeModification>; // Persistence for Renames, Marks, and Scans
+  autoMarkCount: number;
+  isAutoMarkEnabled: boolean;
 
-  // Core / Dev Settings
+  autoMinerData: number;
+  autoMinerInterval: number;
+  lastTickAt: number;
+
+  runSeed: number;
+  consumedIds: string[];
+  modifiedNodes: Record<string, NodeModification>;
+
   isDevModeEnabled: boolean;
   isAscendRootEnabled: boolean;
+
+  achievements: Record<string, number>;
+  secretsFound: string[];
+  loreSeen: string[];
+  stats: GameStats;
+  secretsZipSeen: boolean;
+  hasSeenThankYou: boolean;
+
+  arcadeWins: Record<string, number>;
+  passes: number;
+  fuelPaidIter: number;
+  unlockedFileIds: string[];
+  trailProof: Record<number, number>;
+  revealedDepths: number[];
+  exploredDirIds: string[];
+  triangulated: Record<string, 1 | 2 | 3>;
+  locatedMinigames: string[];
+  locatedTrail: number[];
+  unscrambledTrail: number[];
+  unlockedTools: string[];
 }
 
 export interface WindowState {
@@ -106,7 +155,8 @@ export interface WindowState {
   title: string;
   zIndex: number;
   isMinimized: boolean;
-  data?: any; // For passing file content or path
+  isMaximized?: boolean;
+  data?: unknown;
   position?: { x: number; y: number };
 }
 
@@ -114,7 +164,7 @@ export enum NotificationType {
   INFO = 'INFO',
   SUCCESS = 'SUCCESS',
   WARNING = 'WARNING',
-  ERROR = 'ERROR'
+  ERROR = 'ERROR',
 }
 
 export interface AppNotification {

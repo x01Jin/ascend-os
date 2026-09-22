@@ -9,7 +9,6 @@ const BootSequence: React.FC<BootSequenceProps> = ({ iteration, onComplete }) =>
   const [lines, setLines] = useState<string[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Ref pattern ensures we always call the latest onComplete without re-triggering the effect
   const onCompleteRef = useRef(onComplete);
   useEffect(() => {
     onCompleteRef.current = onComplete;
@@ -25,8 +24,9 @@ const BootSequence: React.FC<BootSequenceProps> = ({ iteration, onComplete }) =>
       ` `,
       `> POWER_ON_SELF_TEST... OK`,
       `> LOADING KERNEL...`,
-      `> MOUNTING VFS (VOID FILE SYSTEM)...`,
-      `> READING SECTOR 0x0000${iteration}...`,
+      `> MOUNTING VFS...`,
+      `[BOOT LOG-01] BUILD 3.11.4-rc7. HANDOFF MANIFEST 03:14:07 UTC 2038-01-19. INCOMPLETE.`,
+      `[BUILD LOG-02] BINARY ascend TAGGED 3.11.4-rc7. PACKED 2038-01-10, NINE DAYS BEFORE THE MANIFEST LINE.`,
       `> LOADING DRIVERS:`,
       `  - REALITY_ANCHOR.SYS`,
       `  - CHRONOS_SYNC.DLL`,
@@ -36,11 +36,10 @@ const BootSequence: React.FC<BootSequenceProps> = ({ iteration, onComplete }) =>
       `ALLOCATING VIDEO MEMORY...`,
       `STARTING DESKTOP ENVIRONMENT...`,
       ` `,
-      `SYSTEM READY.`
+      `SYSTEM READY.`,
     ];
 
     let currentIndex = 0;
-    setLines([]); // Reset lines on new iteration
 
     const interval = setInterval(() => {
       if (currentIndex >= bootLines.length) {
@@ -56,12 +55,12 @@ const BootSequence: React.FC<BootSequenceProps> = ({ iteration, onComplete }) =>
     }, 100);
 
     return () => clearInterval(interval);
-  }, [iteration]); // Dependencies simplified to just iteration
+  }, [iteration]);
 
-  // Auto-scroll to bottom
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const el = scrollRef.current;
+    if (el && lines.length > 0) {
+      el.scrollTop = el.scrollHeight;
     }
   }, [lines]);
 
@@ -69,8 +68,10 @@ const BootSequence: React.FC<BootSequenceProps> = ({ iteration, onComplete }) =>
     <div className="w-full h-screen bg-black text-green-500 font-mono text-sm sm:text-base p-4 sm:p-10 flex flex-col justify-end overflow-hidden relative">
       <div className="scanline"></div>
 
-      {/* Container for text */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto no-scrollbar flex flex-col justify-end">
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto no-scrollbar flex flex-col justify-end"
+      >
         {lines.map((line, idx) => (
           <div key={idx} className="whitespace-pre-wrap leading-tight">
             {line}

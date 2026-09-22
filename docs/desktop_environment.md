@@ -1,46 +1,29 @@
-# Desktop Environment
+# Desktop environment
 
-Ascend OS simulates a complete windowed operating system environment.
+## Window manager
 
-## Window Manager
-
-- **Spawning**: Windows are fixed 600x450, centered with a 30px cascade offset (resets when no windows remain).
-- **Cascading**: If multiple windows are opened, they cascade (offset by 30px) to ensure titles are visible.
-- **Z-Index**: Clicking or focusing a window brings it to the front, starting from 100.
-- **Single-instance**: Core Settings, System Help, and Personalization reuse the existing window instead of opening duplicates.
-- **Controls**:
-  - **Minimize**: Hides the window to the taskbar.
-  - **Close**: Terminates the application instance.
-  - **Drag**: Windows can be dragged by their title bar.
-  - **Maximize**: Disabled.
+Windows spawn at 600x450, centered with a 30 px cascade offset that resets when none remain. Focus brings a window to front from z-index 100. Each File Explorer launch opens a new window. Text files, minigame cabinets, hold vaults, and eggs open one window per item and focus it when opened again. All other apps reuse one instance. Controls: minimize to taskbar, maximize toggle (title-bar button, title-bar double-click, or title-bar right-click), close, drag by title bar (disabled while maximized).
 
 ## Taskbar
 
-- **Start Menu**: Provides access to installed applications (Ascend OS v1.0.4 build 8821). Right-click a Start Menu entry to pin it to the desktop.
-- **Window List**: Shows active windows. Clicking a button focuses or restores the window. Right-click offers Restore/Minimize and Close.
-- **System Tray**: Displays ASCEND-NET and a real-time HH:MM clock.
+Start menu (pin entries to desktop via right-click), including unlocked Explorer tools once bought, window list with right-click minimize/restore and close (left-clicking the active window's entry minimizes it), system tray with ASCEND-NET, live clock, and the progression bar linking to Achievements.
 
-## Desktop Shortcuts
+## Shortcuts
 
-- **Grid System**: Icons snap to a hidden grid (96x112px cells).
-- **Context Menu**: Right-click shortcuts to Open or Delete them.
-- **Pinning**: Applications can be pinned to the desktop via the Start Menu context menu.
+Icons snap to a 96x112 grid. Right-click to open or delete. Pin apps from the Start menu. Right-clicking empty desktop space offers Refresh System, which repaints the desktop in place without rebooting or closing windows.
 
 ## Personalization
 
-- **Wallpapers**: Users can upload custom images to replace the default animated background void.
-- **Storage**: Images are converted to Base64 and stored in the browser's Local Storage.
-- **Persistence**: Wallpaper settings persist across reloads and Ascension cycles.
-- **Constraints**: File size is limited (approx 3MB) to ensure game state save integrity.
+Upload a wallpaper (3 MB cap, stored Base64). Persists across reloads and ascensions.
 
-## Notification System
+## Notifications
 
-- **Toast Notifications**: Non-intrusive alerts appear in the bottom-right corner.
-- **Types**: Info, Success, Warning, and Error.
-- **Behavior**: Notifications stack and auto-dismiss after 3 seconds.
+Stacked toasts, bottom-right, auto-dismiss after 3 seconds, capped at 6 with oldest dropped and identical repeats skipped. Types: info, success, warning, error. Every first achievement, secret, and lore entry posts one.
+
+## Crash recovery
+
+If the desktop process throws during render, a full-screen fault screen replaces it. Reload retries without touching the save. Factory reset clears every slot, backup, quarantine copy, and the wallpaper key, then reloads into a fresh state.
 
 ## Aesthetics
 
-- **Scanlines**: A CSS-based CRT scanline overlay.
-- **Animated Background**: Subtle gradient shifts (`bg-animated`).
-- **Font**: Use of 'JetBrains Mono' for terminal/code aesthetics and 'Inter' for UI elements.
+CRT scanline overlay, animated gradient background, JetBrains Mono for terminal text with Inter for UI.

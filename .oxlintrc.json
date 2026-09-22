@@ -8,5 +8,13 @@
   "rules": {
     "no-debugger": "error"
   },
+  "overrides": [
+    {
+      "files": ["index.tsx"],
+      "rules": {
+        "import/no-unassigned-import": "off"
+      }
+    }
+  ],
   "ignorePatterns": ["dist/**", "node_modules/**"]
 }
