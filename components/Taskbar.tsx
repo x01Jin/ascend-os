@@ -8,6 +8,8 @@ import {
   Cpu,
   Download,
   Trophy,
+  Map,
+  Radar,
 } from 'lucide-react';
 import { AppId, WindowState } from '../types';
 import { START_MENU_ITEMS } from '../constants';
@@ -23,6 +25,7 @@ interface TaskbarProps {
   onToggleMaximize: (windowId: string) => void;
   onContextMenu: (x: number, y: number, items: ContextMenuItem[]) => void;
   onPinToDesktop: (appId: AppId, label: string) => void;
+  unlockedTools: string[];
   progress?: number;
 }
 
@@ -36,6 +39,7 @@ const Taskbar: React.FC<TaskbarProps> = ({
   onToggleMaximize,
   onContextMenu,
   onPinToDesktop,
+  unlockedTools,
   progress = 1,
 }) => {
   const [isStartOpen, setIsStartOpen] = useState(false);
@@ -47,6 +51,16 @@ const Taskbar: React.FC<TaskbarProps> = ({
   }, []);
 
   const toggleStart = () => setIsStartOpen(!isStartOpen);
+
+  const menuItems = [
+    ...START_MENU_ITEMS,
+    ...(unlockedTools.includes('map')
+      ? [{ id: AppId.CARTOGRAPHER, label: 'Explorer Map', icon: 'Map' }]
+      : []),
+    ...(unlockedTools.includes('radar')
+      ? [{ id: AppId.RADAR, label: 'Radar', icon: 'Radar' }]
+      : []),
+  ];
 
   const handleWindowContextMenu = (e: React.MouseEvent, win: WindowState) => {
     e.preventDefault();
@@ -108,7 +122,7 @@ const Taskbar: React.FC<TaskbarProps> = ({
             <span className="block text-xs text-gray-500">v1.0.4 build 8821</span>
           </div>
           <div className="p-2 space-y-1">
-            {START_MENU_ITEMS.map(item => (
+            {menuItems.map(item => (
               <button
                 key={item.id}
                 className="w-full text-left px-3 py-2 rounded hover:bg-white/10 flex items-center gap-3 text-sm text-gray-200"
@@ -126,6 +140,8 @@ const Taskbar: React.FC<TaskbarProps> = ({
                 {item.icon === 'Download' && <Download size={18} className="text-purple-400" />}
                 {item.icon === 'HelpCircle' && <HelpCircle size={18} className="text-green-400" />}
                 {item.icon === 'Trophy' && <Trophy size={18} className="text-yellow-400" />}
+                {item.icon === 'Map' && <Map size={18} className="text-emerald-400" />}
+                {item.icon === 'Radar' && <Radar size={18} className="text-cyan-400" />}
                 {item.label}
               </button>
             ))}

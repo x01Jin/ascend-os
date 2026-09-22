@@ -6,7 +6,7 @@ Windows spawn at 600x450, centered with a 30 px cascade offset that resets when 
 
 ## Taskbar
 
-Start menu (pin entries to desktop via right-click), window list with right-click minimize/restore and close, system tray with ASCEND-NET, live clock, and the progression bar linking to Achievements.
+Start menu (pin entries to desktop via right-click), including unlocked Explorer tools once bought, window list with right-click minimize/restore and close, system tray with ASCEND-NET, live clock, and the progression bar linking to Achievements.
 
 ## Shortcuts
 

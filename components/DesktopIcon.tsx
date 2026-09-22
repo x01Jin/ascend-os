@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Folder, HelpCircle, Cpu, AppWindow, Download } from 'lucide-react';
+import { Folder, HelpCircle, Cpu, AppWindow, Download, Map, Radar } from 'lucide-react';
 import { AppId, DesktopShortcut } from '../types';
 import { DESKTOP_GRID } from '../constants';
 
@@ -121,6 +121,26 @@ const DesktopIcon: React.FC<DesktopIconProps> = ({ shortcut, onOpen, onMove, onC
           >
             <div className="text-green-200">
               <HelpCircle size={32} />
+            </div>
+          </div>
+        );
+      case AppId.CARTOGRAPHER:
+        return (
+          <div
+            className={`${commonClasses} bg-emerald-500/20 border-emerald-500/30 group-hover:bg-emerald-500/40`}
+          >
+            <div className="text-emerald-200">
+              <Map size={32} />
+            </div>
+          </div>
+        );
+      case AppId.RADAR:
+        return (
+          <div
+            className={`${commonClasses} bg-cyan-500/20 border-cyan-500/30 group-hover:bg-cyan-500/40`}
+          >
+            <div className="text-cyan-200">
+              <Radar size={32} />
             </div>
           </div>
         );

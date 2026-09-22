@@ -54,7 +54,7 @@ import Achievements from './components/apps/Achievements';
 import EggHunt from './components/apps/EggHunt';
 import AscensionGate from './components/apps/AscensionGate';
 import Minigames from './components/apps/Minigames';
-import Cartographer, { revealCostFor } from './components/apps/Cartographer';
+import Cartographer, { revealCostFor, teleportCostFor } from './components/apps/Cartographer';
 import Radar from './components/apps/Radar';
 import { MINIGAMES, fuelFeeKB, getGateStatus } from './services/gate';
 import ThankYouLetter from './components/system/ThankYouLetter';
@@ -406,6 +406,9 @@ const App: React.FC = () => {
         case AppId.ASCENSION:
           title = 'System Ascension';
           break;
+        case AppId.CARTOGRAPHER:
+          title = 'Explorer Map';
+          break;
         case AppId.ACHIEVEMENTS:
           title = 'Achievements';
           break;
@@ -586,8 +589,22 @@ const App: React.FC = () => {
   };
 
   const [teleportTarget, setTeleportTarget] = useState<TeleportTarget | null>(null);
+  const [explorerDirId, setExplorerDirId] = useState<string>('root');
 
   const handleTeleport = (dirId: string) => {
+    if (!fileSystem) return;
+    const cost = teleportCostFor(fileSystem, explorerDirId, dirId, gameState.exploredDirIds);
+    if (gameState.autoMarkCount < cost) {
+      addNotification(
+        'MARKERS SHORT',
+        `Teleport needs ${cost} automarkers.`,
+        NotificationType.WARNING
+      );
+      return;
+    }
+    if (cost > 0) {
+      setGameState(prev => ({ ...prev, autoMarkCount: prev.autoMarkCount - cost }));
+    }
     const explorers = windows.filter(w => w.appId === AppId.EXPLORER);
     const target =
       explorers.find(w => w.id === lastExplorerId) ??
@@ -621,7 +638,7 @@ const App: React.FC = () => {
     }));
     handlePinToDesktop(
       tool === 'radar' ? AppId.RADAR : AppId.CARTOGRAPHER,
-      tool === 'radar' ? 'Radar' : 'Map'
+      tool === 'radar' ? 'Radar' : 'Explorer Map'
     );
     unlockAchievement(tool === 'radar' ? 'radar_op' : 'cartographer');
     addNotification('TOOL UNLOCKED', `${tool} installed to desktop.`, NotificationType.SUCCESS);
@@ -912,6 +929,7 @@ const App: React.FC = () => {
       return nextState;
     });
 
+    setExplorerDirId('root');
     setIsAscending(false);
     setIsBooting(true);
   };
@@ -1061,6 +1079,7 @@ const App: React.FC = () => {
   };
 
   const handleNavigateDir = (dir: DirectoryNode) => {
+    setExplorerDirId(dir.id);
     setGameState(prev =>
       prev.exploredDirIds.includes(dir.id)
         ? prev
@@ -1287,6 +1306,7 @@ const App: React.FC = () => {
               root={fileSystem}
               revealedDepths={gameState.revealedDepths}
               exploredDirIds={gameState.exploredDirIds}
+              explorerDirId={explorerDirId}
               autoMarkCount={gameState.autoMarkCount}
               onTeleport={handleTeleport}
               onRevealLevel={handleRevealLevel}
@@ -1369,6 +1389,7 @@ const App: React.FC = () => {
         onToggleMaximize={toggleMaximize}
         onContextMenu={handleContextMenu}
         onPinToDesktop={handlePinToDesktop}
+        unlockedTools={gameState.unlockedTools}
         progress={progress}
       />
 
