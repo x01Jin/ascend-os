@@ -63,7 +63,7 @@ export enum AppId {
   PERSONALIZE = 'personalize',
   CORE_SETTINGS = 'core_settings',
   ACHIEVEMENTS = 'achievements',
-  ARCADE = 'arcade',
+  MINIGAME = 'arcade',
   CARTOGRAPHER = 'cartographer',
   RADAR = 'radar',
   EGG = 'egg',
@@ -128,6 +128,7 @@ export interface GameState {
   arcadeWins: Record<string, number>;
   passes: number;
   fuelPaidIter: number;
+  ghostSolvedIter: number;
   unlockedTools: string[];
 }
 

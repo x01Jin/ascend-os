@@ -1,5 +1,5 @@
 import { DirectoryNode, FileNode, FileType, FileExtension, PackageContent } from '../types';
-import { ARCADE_GAMES } from './gate';
+import { MINIGAMES } from './gate';
 
 let seedCounter = 1;
 const random = () => {
@@ -358,14 +358,14 @@ export const generateFileSystem = (
   }
 
   const vaultHost = cache ?? pickHost();
-  const vaultParentName = vaultHost.name;
+  const vaultParentId = vaultHost.id;
   const ghostHost = pickHost();
   placeFile(ghostHost, {
     id: `ghost_${iteration}`,
     name: `ghost_${ghostWord}`,
     type: FileType.FILE,
     extension: FileExtension.TXT,
-    content: `// GHOST FREQUENCY - ITERATION ${iteration}\n\n> static ... signal found ...\n> PASSWORD: ${ghostPassword}\n> CACHE SLEEPS IN ${vaultParentName}\n> A locked vault in that folder listens for the password.\n> [ARCHIVIST NOTE: write it down, it changes per iteration]`,
+    content: `// GHOST FREQUENCY - ITERATION ${iteration}\n\n> static ... signal found ...\n> PASSWORD: ${ghostPassword}\n> CACHE SLEEPS IN ${vaultParentId}\n> A locked vault in that folder listens for the password.\n> [ARCHIVIST NOTE: write it down, it changes per iteration]`,
     parentId: ghostHost.id,
     isWinningPath: false,
     loreId: 'lore_ghost',
@@ -387,7 +387,7 @@ export const generateFileSystem = (
   });
 
   const exeHosts: string[] = [];
-  for (const game of ARCADE_GAMES) {
+  for (const game of MINIGAMES) {
     const host = pickHost();
     placeFile(host, {
       id: `${game.id}_${iteration}`,
@@ -398,7 +398,7 @@ export const generateFileSystem = (
       parentId: host.id,
       isWinningPath: false,
     });
-    exeHosts.push(host.name);
+    exeHosts.push(host.id);
   }
 
   if (iteration === 1) {
@@ -407,7 +407,7 @@ export const generateFileSystem = (
       name: 'archivist_1',
       type: FileType.FILE,
       extension: FileExtension.TXT,
-      content: `// ARCHIVIST TRAIL 1/5\n\nFirst mark, left in the shell I crossed two ferries back. I left four more parts, one per shell above this one.\nThe ghost file sleeps in ${ghostHost.name}. It is the automated broadcast of the operator before me, still transmitting on a dead channel: a password, and the folder where its sealed vault sleeps. Copy the password down, it changes every shell.\nAscend.`,
+      content: `// ARCHIVIST TRAIL 1/5\n\nFirst mark, left in the shell I crossed two ferries back. I left four more parts, one per shell above this one.\nThe ghost file sleeps in ${ghostHost.id}. It is the automated broadcast of the operator before me, still transmitting on a dead channel: a password, and the folder where its sealed vault sleeps. Copy the password down, it changes every shell.\nAscend.`,
       parentId: root.id,
       isWinningPath: false,
       loreId: 'lore_archivist_1',
@@ -416,7 +416,7 @@ export const generateFileSystem = (
   }
 
   const trailBodies: Record<number, string> = {
-    2: `// ARCHIVIST TRAIL 2/5\n\nSecond mark. The vault waits in ${vaultParentName}. I sealed a minigame pass inside it for whoever follows; the ghost password opens it.\nThree parts remain, each one shell higher.`,
+    2: `// ARCHIVIST TRAIL 2/5\n\nSecond mark. The vault waits in ${vaultParentId}. I sealed a minigame pass inside it for whoever follows; the ghost password opens it.\nThree parts remain, each one shell higher.`,
     3: `// ARCHIVIST TRAIL 3/5\n\nThird mark. A recreation terminal still runs in ${exeHosts[0] ?? ''}. Play it and the ferry counts the win.\nPast halfway. Read us in order or the cache stays shut.`,
     4: `// ARCHIVIST TRAIL 4/5\n\nFourth mark. Another terminal runs in ${exeHosts[1] ?? exeHosts[0] ?? ''}.\nOne part remains, one shell higher.`,
   };
@@ -442,7 +442,7 @@ export const generateFileSystem = (
       name: 'archivist_5',
       type: FileType.FILE,
       extension: FileExtension.TXT,
-      content: `// ARCHIVIST TRAIL 5/5\n\nLast mark. I buried a cache as ${cacheName}. Open that folder and take the vault inside.\nYou now know my route, and the ferry needs it.`,
+      content: `// ARCHIVIST TRAIL 5/5\n\nLast mark. I buried a cache as ${cache?.id ?? cacheName}. Open that folder and take the vault inside.\nYou now know my route, and the ferry needs it.`,
       parentId: host.id,
       isWinningPath: false,
       loreId: 'lore_archivist_5',

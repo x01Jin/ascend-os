@@ -52,10 +52,10 @@ import CoreSettings from './components/apps/CoreSettings';
 import Achievements from './components/apps/Achievements';
 import EggHunt from './components/apps/EggHunt';
 import AscensionGate from './components/apps/AscensionGate';
-import Arcade from './components/apps/Arcade';
+import Minigames from './components/apps/Minigames';
 import Cartographer from './components/apps/Cartographer';
 import Radar from './components/apps/Radar';
-import { ARCADE_GAMES, fuelFeeKB, getGateStatus } from './services/gate';
+import { MINIGAMES, fuelFeeKB, getGateStatus } from './services/gate';
 import ThankYouLetter from './components/system/ThankYouLetter';
 import { ACH_FOR_ZIP } from './services/achievements';
 import { LORE_FRAGMENTS } from './services/lore';
@@ -950,7 +950,7 @@ const App: React.FC = () => {
       id => file.name.toLowerCase() === id || file.content === `EXECUTE_${id.toUpperCase()}`
     );
     if (file.extension === FileExtension.EXE && minigameId) {
-      openWindow(AppId.ARCADE, { gameId: minigameId });
+      openWindow(AppId.MINIGAME, { gameId: minigameId });
     } else if (
       file.extension === FileExtension.EXE &&
       (file.name.toLowerCase() === 'ascend' || file.content === 'EXECUTE_ASCENSION')
@@ -983,7 +983,11 @@ const App: React.FC = () => {
     );
     const isVault = file.name.endsWith('.zip') || file.id.startsWith('vault_');
     if (isVault) {
-      setGameState(prev => ({ ...prev, passes: prev.passes + 1 }));
+      setGameState(prev => ({
+        ...prev,
+        passes: prev.passes + 1,
+        ghostSolvedIter: prev.currentIteration,
+      }));
     }
     addNotification(
       isVault ? 'VAULT DECRYPTED' : 'CACHE DECRYPTED',
@@ -1053,10 +1057,10 @@ const App: React.FC = () => {
     checkEggHunter();
   };
 
-  const handleArcadeWin = (gameId: string) => {
+  const handleMinigameWin = (gameId: string) => {
     const iter = gameState.currentIteration;
     if (gameState.arcadeWins[gameId] === iter) return;
-    const wins = ARCADE_GAMES.filter(
+    const wins = MINIGAMES.filter(
       g => g.id === gameId || gameState.arcadeWins[g.id] === iter
     ).length;
     setGameState(prev => ({
@@ -1064,7 +1068,7 @@ const App: React.FC = () => {
       arcadeWins: { ...prev.arcadeWins, [gameId]: prev.currentIteration },
     }));
     if (wins <= 1) unlockAchievement('arcade_rookie');
-    if (wins >= ARCADE_GAMES.length) unlockAchievement('arcade_master');
+    if (wins >= MINIGAMES.length) unlockAchievement('arcade_master');
     addNotification(
       'MINIGAME CLEARED',
       'Score recorded for this iteration.',
@@ -1076,7 +1080,7 @@ const App: React.FC = () => {
     if (gameState.passes < 1) return;
     if (gameState.arcadeWins[gameId] === gameState.currentIteration) return;
     setGameState(prev => ({ ...prev, passes: prev.passes - 1 }));
-    handleArcadeWin(gameId);
+    handleMinigameWin(gameId);
   };
 
   const handleOpenZip = () => {
@@ -1200,13 +1204,13 @@ const App: React.FC = () => {
               onCrack={handleEggCrack}
             />
           )}
-          {win.appId === AppId.ARCADE && (
-            <Arcade
+          {win.appId === AppId.MINIGAME && (
+            <Minigames
               gameId={(win.data as { gameId?: string })?.gameId ?? 'pong'}
-              arcadeWins={gameState.arcadeWins}
+              wins={gameState.arcadeWins}
               currentIteration={gameState.currentIteration}
               passes={gameState.passes}
-              onWin={handleArcadeWin}
+              onWin={handleMinigameWin}
               onRedeem={handleRedeemPass}
             />
           )}
@@ -1268,6 +1272,10 @@ const App: React.FC = () => {
           {win.appId === AppId.ASCENSION && (
             <AscensionGate
               gameState={gameState}
+              root={fileSystem}
+              dataKB={gameState.dataKB}
+              onSpendData={handleSpendData}
+              onShowLocation={file => openWindow(AppId.TEXT_VIEWER, file)}
               onPayFuel={handlePayFuel}
               onConfirm={handleAscendStart}
               onAbort={() => closeWindow(win.id)}

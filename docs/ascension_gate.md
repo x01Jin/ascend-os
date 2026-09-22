@@ -5,7 +5,7 @@ Running `ascend.exe` opens the gate dialog instead of ascending directly. All it
 ## Checklist
 
 1. **Trail**: the lore fragment for `archivist_N` is recorded (`lore_archivist_N` seen), with `N = min(iteration, 5)`.
-2. **Ghost**: solve the ghost frequency (once ever, any iteration).
+2. **Ghost**: solve the ghost frequency this iteration.
 3. **Minigames**: beat the 3 picked cabinets this iteration. The pick rotates deterministically from `runSeed` and iteration.
 4. **Fuel**: pay `25 MB * iteration`, once per iteration.
 

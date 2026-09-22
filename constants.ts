@@ -6,6 +6,9 @@ export const scanCostFor = (iteration: number): number =>
   SCAN_COST + (Math.max(1, iteration) - 1) * (2 * 1024);
 export const CLICK_VALUE_BASE = 50;
 export const CLICK_UPGRADE_INCREMENT = 5;
+export const LOCATE_COST_BASE = 5 * 1024;
+export const locateCostFor = (iteration: number): number =>
+  LOCATE_COST_BASE + (Math.max(1, iteration) - 1) * (2 * 1024);
 
 export const UPGRADE_COST_BASE = 10 * 1024;
 export const UPGRADE_COST_GROWTH = 1.35;
@@ -70,5 +73,6 @@ export const INITIAL_GAME_STATE: GameState = {
   arcadeWins: {},
   passes: 0,
   fuelPaidIter: 0,
+  ghostSolvedIter: 0,
   unlockedTools: [],
 };

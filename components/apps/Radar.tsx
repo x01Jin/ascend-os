@@ -8,7 +8,7 @@ interface RadarProps {
 
 interface Contact {
   file: FileNode;
-  parentName: string;
+  parentId: string;
   tag: string;
 }
 
@@ -33,7 +33,7 @@ const Radar: React.FC<RadarProps> = ({ root, onTeleport }) => {
           walk(child as DirectoryNode);
         } else {
           const tag = tagFor(child as FileNode);
-          if (tag) out.push({ file: child as FileNode, parentName: node.name || '/', tag });
+          if (tag) out.push({ file: child as FileNode, parentId: node.id, tag });
         }
       }
     };
@@ -58,7 +58,7 @@ const Radar: React.FC<RadarProps> = ({ root, onTeleport }) => {
             <span className="text-xs text-gray-200 truncate">
               {c.file.name}.{c.file.extension}
             </span>
-            <span className="text-[10px] text-gray-600 truncate">in {c.parentName}</span>
+            <span className="text-[10px] text-gray-600 truncate">in {c.parentId}</span>
             <button
               onClick={() => c.file.parentId && onTeleport(c.file.parentId)}
               className="ml-auto text-[10px] text-purple-400 hover:text-purple-200 border border-purple-800 rounded px-1 shrink-0"

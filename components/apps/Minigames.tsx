@@ -1,14 +1,14 @@
 import React from 'react';
-import { ARCADE_GAMES } from '../../services/gate';
-import PongGame from './arcade/PongGame';
-import DinoGame from './arcade/DinoGame';
-import TicTacToeGame from './arcade/TicTacToeGame';
-import SnakeGame from './arcade/SnakeGame';
-import MemoryGame from './arcade/MemoryGame';
+import { MINIGAMES } from '../../services/gate';
+import PongGame from './minigames/PongGame';
+import DinoGame from './minigames/DinoGame';
+import TicTacToeGame from './minigames/TicTacToeGame';
+import SnakeGame from './minigames/SnakeGame';
+import MemoryGame from './minigames/MemoryGame';
 
-interface ArcadeProps {
+interface MinigameProps {
   gameId: string;
-  arcadeWins: Record<string, number>;
+  wins: Record<string, number>;
   currentIteration: number;
   passes: number;
   onWin: (gameId: string) => void;
@@ -23,16 +23,16 @@ const GAMES: Record<string, React.FC<{ onWin: () => void }>> = {
   memory: MemoryGame,
 };
 
-const Arcade: React.FC<ArcadeProps> = ({
+const Minigames: React.FC<MinigameProps> = ({
   gameId,
-  arcadeWins,
+  wins,
   currentIteration,
   passes,
   onWin,
   onRedeem,
 }) => {
   const Game = GAMES[gameId];
-  const meta = ARCADE_GAMES.find(g => g.id === gameId);
+  const meta = MINIGAMES.find(g => g.id === gameId);
 
   return (
     <div className="h-full flex flex-col bg-gray-950 text-gray-300 font-mono text-sm">
@@ -40,7 +40,7 @@ const Arcade: React.FC<ArcadeProps> = ({
         <span className="text-xs font-bold text-white">{meta?.title ?? gameId}</span>
         <span className="text-xs text-gray-500">{meta?.goal ?? ''}</span>
         <span className="ml-auto text-xs text-gray-500">passes: {passes}</span>
-        {passes > 0 && arcadeWins[gameId] !== currentIteration && (
+        {passes > 0 && wins[gameId] !== currentIteration && (
           <button
             onClick={() => onRedeem(gameId)}
             className="px-2 py-1 rounded text-xs border bg-purple-600 text-white border-purple-400 hover:bg-purple-500"
@@ -56,4 +56,4 @@ const Arcade: React.FC<ArcadeProps> = ({
   );
 };
 
-export default Arcade;
+export default Minigames;
