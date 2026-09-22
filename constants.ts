@@ -24,7 +24,7 @@ export const triangulationCostFor = (
 };
 
 export const UPGRADE_COST_BASE = 10 * 1024;
-export const UPGRADE_COST_GROWTH = 1.35;
+export const UPGRADE_COST_GROWTH = 1.15;
 export const BOOST_COST_BASE_PER_SEC = 5 * 1024;
 export const AUTOMARK_COST_PER_UNIT = 5 * 1024;
 export const MAP_UNLOCK_COST = 100 * 1024;
@@ -107,6 +107,8 @@ export const INITIAL_GAME_STATE: GameState = {
   arcadeWins: {},
   passes: 0,
   fuelPaidIter: 0,
+  unlockedFileIds: [],
+  trailProof: {},
   revealedDepths: [0, 1],
   exploredDirIds: [],
   triangulated: {},

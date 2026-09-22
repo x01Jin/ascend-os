@@ -147,13 +147,14 @@ const Updates: React.FC<UpdatesProps> = ({
                 Overclock Banks
               </h3>
               <p className="text-xs text-gray-500">
-                Purchase bottled time for specific overclock multipliers.
+                Purchase bottled time for specific overclock multipliers. Boost applies to manual
+                mining clicks only.
               </p>
             </div>
           </div>
 
           <div className="flex gap-2 mb-4">
-            {([2, 3, 4] as const).map(m => (
+            {([2, 3, 4, 5] as const).map(m => (
               <button
                 key={m}
                 onClick={() => setSelectedMultiplier(m)}

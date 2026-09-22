@@ -2,7 +2,14 @@ import { DirectoryNode, FileSystemNode, FileType, NodeModification } from '../ty
 import { generateFileSystem } from './generator';
 import { loadGame, SaveMode } from './storage';
 import { processDevMode } from './devMode';
-import { INITIAL_GAME_STATE, OFFLINE_YIELD_CAP_MS, OFFLINE_YIELD_RATE } from '../constants';
+import {
+  AUTOMINER_DEFAULT_INTERVAL,
+  AUTOMINER_MIN_INTERVAL,
+  INITIAL_GAME_STATE,
+  OFFLINE_YIELD_CAP_MS,
+  OFFLINE_YIELD_RATE,
+} from '../constants';
+import { nowMs } from './clock';
 
 export const findNodeById = (node: DirectoryNode, id: string): FileSystemNode | null => {
   if (node.id === id) return node;
@@ -98,12 +105,12 @@ export const updateNodeRecursively = (
   return { ...node, children: newChildren };
 };
 
-export const buildSystem = (mode: SaveMode) => {
+export const buildSystem = (mode: SaveMode, now: number = nowMs()) => {
   let loadedState = loadGame(mode);
 
   if (!loadedState) {
     loadedState = { ...INITIAL_GAME_STATE };
-    loadedState.runSeed = Date.now();
+    loadedState.runSeed = now;
   }
 
   if (!loadedState.shortcuts) {
@@ -113,22 +120,43 @@ export const buildSystem = (mode: SaveMode) => {
   loadedState = processDevMode(loadedState);
 
   let offlineYieldKB = 0;
-  if (loadedState.lastTickAt > 0 && loadedState.autoMinerData > 0) {
-    const elapsed = Math.min(Date.now() - loadedState.lastTickAt, OFFLINE_YIELD_CAP_MS);
-    const ticks = Math.floor(elapsed / Math.max(1, loadedState.autoMinerInterval));
+  const interval = loadedState.autoMinerInterval;
+  const power = loadedState.autoMinerData;
+  const lastTick = loadedState.lastTickAt;
+  if (
+    Number.isFinite(lastTick) &&
+    lastTick > 0 &&
+    Number.isFinite(power) &&
+    power > 0 &&
+    Number.isFinite(interval) &&
+    interval >= AUTOMINER_MIN_INTERVAL
+  ) {
+    const elapsed = Math.min(Math.max(0, now - lastTick), OFFLINE_YIELD_CAP_MS);
+    const ticks = Math.floor(elapsed / Math.max(1, interval));
     if (ticks > 0) {
-      offlineYieldKB = Math.floor(ticks * loadedState.autoMinerData * OFFLINE_YIELD_RATE);
-      loadedState = {
-        ...loadedState,
-        dataKB: loadedState.dataKB + offlineYieldKB,
-        stats: {
-          ...loadedState.stats,
-          totalMinedKB: loadedState.stats.totalMinedKB + offlineYieldKB,
-        },
-      };
+      offlineYieldKB = Math.floor(
+        Math.min(ticks * power * OFFLINE_YIELD_RATE, Number.MAX_SAFE_INTEGER - loadedState.dataKB)
+      );
+      if (offlineYieldKB > 0 && Number.isFinite(loadedState.stats.totalMinedKB)) {
+        loadedState = {
+          ...loadedState,
+          dataKB: loadedState.dataKB + offlineYieldKB,
+          stats: {
+            ...loadedState.stats,
+            totalMinedKB: loadedState.stats.totalMinedKB + offlineYieldKB,
+          },
+        };
+      } else {
+        offlineYieldKB = 0;
+      }
     }
+  } else if (!Number.isFinite(interval) || interval < AUTOMINER_MIN_INTERVAL) {
+    loadedState = {
+      ...loadedState,
+      autoMinerInterval: AUTOMINER_DEFAULT_INTERVAL,
+    };
   }
-  loadedState = { ...loadedState, lastTickAt: Date.now() };
+  loadedState = { ...loadedState, lastTickAt: now };
 
   const rawFS = generateFileSystem(
     loadedState.currentIteration,

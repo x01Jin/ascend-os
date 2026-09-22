@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 const SYMBOLS = ['▲', '●', '■', '★', '◆', '✚'];
 
@@ -17,6 +17,14 @@ const MemoryGame: React.FC<{ onWin: () => void }> = ({ onWin }) => {
   const [matched, setMatched] = useState<number[]>([]);
   const [lock, setLock] = useState(false);
   const cleared = useMemo(() => matched.length === 12, [matched]);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    },
+    []
+  );
 
   const flip = (i: number) => {
     if (lock || open.includes(i) || matched.includes(i) || cleared) return;
@@ -31,9 +39,11 @@ const MemoryGame: React.FC<{ onWin: () => void }> = ({ onWin }) => {
         if (m.length === 12) onWin();
       } else {
         setLock(true);
-        setTimeout(() => {
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        timeoutRef.current = setTimeout(() => {
           setOpen([]);
           setLock(false);
+          timeoutRef.current = null;
         }, 600);
       }
     }
@@ -64,9 +74,14 @@ const MemoryGame: React.FC<{ onWin: () => void }> = ({ onWin }) => {
       </p>
       <button
         onClick={() => {
+          if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+            timeoutRef.current = null;
+          }
           setDeck(shuffled());
           setOpen([]);
           setMatched([]);
+          setLock(false);
         }}
         className="text-xs font-mono text-gray-400 hover:text-white"
       >

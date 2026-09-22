@@ -138,6 +138,8 @@ export interface GameState {
   arcadeWins: Record<string, number>;
   passes: number;
   fuelPaidIter: number;
+  unlockedFileIds: string[];
+  trailProof: Record<number, number>;
   revealedDepths: number[];
   exploredDirIds: string[];
   triangulated: Record<string, 1 | 2 | 3>;

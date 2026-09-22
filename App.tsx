@@ -18,12 +18,18 @@ import { generateFileSystem } from './services/generator';
 import {
   loadGame,
   saveGame,
+  scheduleSave,
+  flushSave,
+  backupSlot,
+  restoreBackup,
   getSaveMode,
   setSaveMode,
+  saveWallpaper,
   resetSave,
   factoryReset,
   SaveMode,
 } from './services/storage';
+import { nowMs } from './services/clock';
 import {
   INITIAL_GAME_STATE,
   DESKTOP_GRID,
@@ -137,6 +143,7 @@ const App: React.FC = () => {
   const dismissZipReward = () => setGameState(prev => ({ ...prev, secretsZipSeen: true }));
   const dismissThankYou = () => setGameState(prev => ({ ...prev, hasSeenThankYou: true }));
 
+  const boostLastTickRef = useRef<number>(nowMs());
   useEffect(() => {
     const tickRate = 100;
     const timer = setInterval(() => {
@@ -149,14 +156,26 @@ const App: React.FC = () => {
             return { ...prev, activeBoostMultiplier: null };
           }
 
+          const now = nowMs();
+          const delta = Math.min(Math.max(0, now - boostLastTickRef.current), 5000);
+          boostLastTickRef.current = now;
+          const remaining = Math.max(0, currentBank - Math.max(tickRate, delta));
+          if (remaining <= 0) {
+            return {
+              ...prev,
+              boostBank: { ...prev.boostBank, [mult]: 0 },
+              activeBoostMultiplier: null,
+            };
+          }
           return {
             ...prev,
             boostBank: {
               ...prev.boostBank,
-              [mult]: Math.max(0, currentBank - tickRate),
+              [mult]: remaining,
             },
           };
         }
+        boostLastTickRef.current = nowMs();
         return prev;
       });
     }, tickRate);
@@ -164,6 +183,27 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    const onHidden = () => {
+      if (document.visibilityState === 'hidden') {
+        boostLastTickRef.current = nowMs();
+        setGameState(prev =>
+          prev.activeBoostMultiplier ? { ...prev, activeBoostMultiplier: null } : prev
+        );
+        flushSave();
+      } else {
+        boostLastTickRef.current = nowMs();
+      }
+    };
+    document.addEventListener('visibilitychange', onHidden);
+    window.addEventListener('pagehide', onHidden);
+    return () => {
+      document.removeEventListener('visibilitychange', onHidden);
+      window.removeEventListener('pagehide', onHidden);
+    };
+  }, []);
+
+  useEffect(() => {
+    const interval = Math.max(AUTOMINER_MIN_INTERVAL, gameState.autoMinerInterval);
     const intervalId = setInterval(() => {
       setGameState(prev => {
         let newState = { ...prev };
@@ -177,10 +217,10 @@ const App: React.FC = () => {
           };
           const earned: Record<string, number> = {};
           if (minedTotal >= 10240 && prev.achievements['ten_mb'] === undefined) {
-            earned['ten_mb'] = Date.now();
+            earned['ten_mb'] = nowMs();
           }
           if (minedTotal >= 512000 && prev.achievements['half_gb'] === undefined) {
-            earned['half_gb'] = Date.now();
+            earned['half_gb'] = nowMs();
           }
           if (Object.keys(earned).length > 0) {
             newState.achievements = { ...prev.achievements, ...earned };
@@ -191,11 +231,11 @@ const App: React.FC = () => {
           newState.dataKB = 999999999999;
         }
 
-        newState.lastTickAt = Date.now();
+        newState.lastTickAt = nowMs();
 
         return newState;
       });
-    }, gameState.autoMinerInterval);
+    }, interval);
 
     return () => clearInterval(intervalId);
   }, [gameState.autoMinerInterval]);
@@ -213,12 +253,12 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (!isBooting && !isAscending) {
-      saveGame(gameState, saveMode);
+      scheduleSave(gameState, saveMode);
     }
   }, [gameState, isBooting, isAscending, saveMode]);
 
   const addNotification = useCallback((title: string, message: string, type: NotificationType) => {
-    const id = Date.now().toString() + Math.random();
+    const id = nowMs().toString() + Math.random();
     setNotifications(prev =>
       prev.some(n => n.title === title && n.message === message)
         ? prev
@@ -255,7 +295,7 @@ const App: React.FC = () => {
         if (prev.achievements[id] !== undefined) return prev;
         return {
           ...prev,
-          achievements: { ...prev.achievements, [id]: Date.now() },
+          achievements: { ...prev.achievements, [id]: nowMs() },
         };
       });
       addNotification(
@@ -276,7 +316,7 @@ const App: React.FC = () => {
         const secretsFound = [...prev.secretsFound, id];
         const achievements =
           secretsFound.length >= 3 && prev.achievements['egg_hunter'] === undefined
-            ? { ...prev.achievements, egg_hunter: Date.now() }
+            ? { ...prev.achievements, egg_hunter: nowMs() }
             : prev.achievements;
         return { ...prev, secretsFound, achievements };
       });
@@ -304,6 +344,19 @@ const App: React.FC = () => {
     (file: FileNode) => {
       if (file.loreId) seeLore(file.loreId);
       file.loreExtra?.forEach(seeLore);
+      if (file.loreId?.startsWith('lore_archivist')) {
+        setGameState(prev =>
+          prev.trailProof[prev.currentIteration] === prev.currentIteration
+            ? prev
+            : {
+                ...prev,
+                trailProof: {
+                  ...prev.trailProof,
+                  [prev.currentIteration]: prev.currentIteration,
+                },
+              }
+        );
+      }
     },
     [seeLore]
   );
@@ -329,7 +382,7 @@ const App: React.FC = () => {
   const handleRefreshSystem = () => {
     setContextMenu(prev => ({ ...prev, isOpen: false }));
     setDesktopNonce(n => n + 1);
-    const now = Date.now();
+    const now = nowMs();
     refreshTimes.current = [...refreshTimes.current.filter(t => now - t < 10000), now];
     if (refreshTimes.current.length >= 5) discoverSecret('refresh');
   };
@@ -433,7 +486,7 @@ const App: React.FC = () => {
         }
       }
 
-      const id = `${appId}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      const id = `${appId}_${nowMs()}_${Math.random().toString(36).slice(2, 7)}`;
       let title = 'Application';
 
       switch (appId) {
@@ -616,6 +669,7 @@ const App: React.FC = () => {
 
   const handlePinToDesktop = (appId: AppId, label: string) => {
     setGameState(prev => {
+      if (prev.shortcuts.some(s => s.appId === appId && s.label === label)) return prev;
       let gridX = 0;
       let gridY = 0;
       const maxCols = Math.floor(
@@ -640,7 +694,7 @@ const App: React.FC = () => {
       }
 
       const newShortcut: DesktopShortcut = {
-        id: `sc_${Date.now()}`,
+        id: `sc_${nowMs()}`,
         appId,
         label,
         gridX,
@@ -681,10 +735,10 @@ const App: React.FC = () => {
     if (target) {
       focusWindow(target.id);
       setLastExplorerId(target.id);
-      setTeleportTarget({ dirId, nonce: Date.now(), windowId: target.id });
+      setTeleportTarget({ dirId, nonce: nowMs(), windowId: target.id });
     } else {
       openWindow(AppId.EXPLORER);
-      setTeleportTarget({ dirId, nonce: Date.now(), windowId: null });
+      setTeleportTarget({ dirId, nonce: nowMs(), windowId: null });
     }
     unlockAchievement('ferry_hop');
   };
@@ -692,17 +746,20 @@ const App: React.FC = () => {
   const handleUnlockTool = (tool: string) => {
     const cost = tool === 'radar' ? RADAR_UNLOCK_COST : MAP_UNLOCK_COST;
     const minIter = tool === 'radar' ? 3 : 2;
-    if (
-      gameState.unlockedTools.includes(tool) ||
-      gameState.currentIteration < minIter ||
-      gameState.dataKB < cost
-    )
-      return;
-    setGameState(prev => ({
-      ...prev,
-      dataKB: prev.dataKB - cost,
-      unlockedTools: [...prev.unlockedTools, tool],
-    }));
+    if (gameState.unlockedTools.includes(tool)) return;
+    setGameState(prev => {
+      if (
+        prev.unlockedTools.includes(tool) ||
+        prev.currentIteration < minIter ||
+        prev.dataKB < cost
+      )
+        return prev;
+      return {
+        ...prev,
+        dataKB: prev.dataKB - cost,
+        unlockedTools: [...prev.unlockedTools, tool],
+      };
+    });
     handlePinToDesktop(
       tool === 'radar' ? AppId.RADAR : AppId.CARTOGRAPHER,
       tool === 'radar' ? 'Radar' : 'Explorer Map'
@@ -717,17 +774,22 @@ const App: React.FC = () => {
 
   const handleHarvestData = () => {
     unlockAchievement('warm_hands');
-    const minedTotal = gameState.stats.totalMinedKB + clickValue;
-    if (minedTotal >= 10240) unlockAchievement('ten_mb');
-    if (minedTotal >= 512000) unlockAchievement('half_gb');
-    setGameState(prev => ({
-      ...prev,
-      dataKB: prev.dataKB + clickValue,
-      stats: {
-        ...prev.stats,
-        totalMinedKB: prev.stats.totalMinedKB + clickValue,
-      },
-    }));
+    setGameState(prev => {
+      const mult = prev.activeBoostMultiplier || 1;
+      const value = (CLICK_VALUE_BASE + prev.efficiencyLevel * CLICK_UPGRADE_INCREMENT) * mult;
+      const minedTotal = prev.stats.totalMinedKB + value;
+      const achievements = { ...prev.achievements };
+      if (minedTotal >= 10240 && achievements['ten_mb'] === undefined)
+        achievements['ten_mb'] = nowMs();
+      if (minedTotal >= 512000 && achievements['half_gb'] === undefined)
+        achievements['half_gb'] = nowMs();
+      return {
+        ...prev,
+        dataKB: prev.dataKB + value,
+        stats: { ...prev.stats, totalMinedKB: minedTotal },
+        achievements,
+      };
+    });
   };
 
   const handleSpendData = (amount: number) => {
@@ -738,43 +800,46 @@ const App: React.FC = () => {
   };
 
   const handlePurchaseUpgrade = () => {
-    const cost = Math.floor(
-      UPGRADE_COST_BASE * Math.pow(UPGRADE_COST_GROWTH, gameState.efficiencyLevel)
-    );
-    if (gameState.dataKB >= cost) {
-      setGameState(prev => ({
+    setGameState(prev => {
+      const cost = Math.floor(
+        UPGRADE_COST_BASE * Math.pow(UPGRADE_COST_GROWTH, prev.efficiencyLevel)
+      );
+      if (prev.dataKB < cost) return prev;
+      return {
         ...prev,
         dataKB: prev.dataKB - cost,
         efficiencyLevel: prev.efficiencyLevel + 1,
-      }));
-    }
+      };
+    });
   };
 
   const handlePurchaseBoost = (multiplier: BoostMultiplier, seconds: number) => {
     const scale = Math.pow(2, multiplier - 2);
     const cost = seconds * BOOST_COST_BASE_PER_SEC * scale;
 
-    if (gameState.dataKB >= cost) {
-      setGameState(prev => ({
+    setGameState(prev => {
+      if (prev.dataKB < cost) return prev;
+      return {
         ...prev,
         dataKB: prev.dataKB - cost,
         boostBank: {
           ...prev.boostBank,
           [multiplier]: (prev.boostBank[multiplier] || 0) + seconds * 1000,
         },
-      }));
-    }
+      };
+    });
   };
 
   const handlePurchaseAutoMark = (amount: number) => {
     const cost = amount * AUTOMARK_COST_PER_UNIT;
-    if (gameState.dataKB >= cost) {
-      setGameState(prev => ({
+    setGameState(prev => {
+      if (prev.dataKB < cost) return prev;
+      return {
         ...prev,
         dataKB: prev.dataKB - cost,
         autoMarkCount: prev.autoMarkCount + amount,
-      }));
-    }
+      };
+    });
   };
 
   const handleToggleAutoMark = () => {
@@ -863,6 +928,7 @@ const App: React.FC = () => {
   };
 
   const handleToggleBoost = (multiplier: BoostMultiplier) => {
+    boostLastTickRef.current = nowMs();
     setGameState(prev => {
       if (prev.activeBoostMultiplier === multiplier) {
         return { ...prev, activeBoostMultiplier: null };
@@ -876,6 +942,7 @@ const App: React.FC = () => {
   };
 
   const handleSetWallpaper = (dataUrl: string | undefined) => {
+    saveWallpaper(dataUrl);
     setGameState(prev => ({ ...prev, wallpaper: dataUrl }));
     if (dataUrl) unlockAchievement('decorator');
     addNotification(
@@ -887,7 +954,8 @@ const App: React.FC = () => {
 
   const rebootSystem = (targetMode: SaveMode, options?: { skipSave?: boolean }) => {
     if (!options?.skipSave) {
-      saveGame(gameState, saveMode);
+      flushSave();
+      saveGame(gameStateRef.current, saveMode);
     }
 
     setSaveMode(targetMode);
@@ -900,10 +968,15 @@ const App: React.FC = () => {
   };
 
   const handleUpdateSeed = (newSeed: number) => {
-    factoryReset();
+    if (!Number.isFinite(newSeed) || !Number.isInteger(newSeed)) return;
+    backupSlot('NORMAL');
+    backupSlot('DEV');
 
     const newState: GameState = {
       ...INITIAL_GAME_STATE,
+      shortcuts: INITIAL_GAME_STATE.shortcuts.map(s => ({ ...s })),
+      stats: { ...INITIAL_GAME_STATE.stats },
+      boostBank: { ...INITIAL_GAME_STATE.boostBank },
       runSeed: newSeed,
     };
 
@@ -911,6 +984,8 @@ const App: React.FC = () => {
     setSaveModeState('NORMAL');
 
     setGameState(newState);
+    setExplorerDirId('root');
+    setTeleportTarget(null);
 
     const rawFS = generateFileSystem(newState.currentIteration, newSeed, false);
     setFileSystem(rawFS);
@@ -925,6 +1000,7 @@ const App: React.FC = () => {
   const handleImportSave = (importedState: GameState) => {
     const targetMode = importedState.isDevModeEnabled ? 'DEV' : 'NORMAL';
 
+    backupSlot(targetMode);
     saveGame(importedState, targetMode);
 
     if (saveMode !== targetMode) {
@@ -934,17 +1010,29 @@ const App: React.FC = () => {
 
     setGameState(importedState);
 
-    const rawFS = generateFileSystem(
-      importedState.currentIteration,
-      importedState.runSeed,
-      importedState.isAscendRootEnabled
-    );
-    const finalFS = prepareFileSystem(
-      rawFS,
-      importedState.consumedIds || [],
-      importedState.modifiedNodes || {}
-    );
-    setFileSystem(finalFS);
+    try {
+      const rawFS = generateFileSystem(
+        importedState.currentIteration,
+        importedState.runSeed,
+        importedState.isAscendRootEnabled
+      );
+      const finalFS = prepareFileSystem(
+        rawFS,
+        importedState.consumedIds || [],
+        importedState.modifiedNodes || {}
+      );
+      setFileSystem(finalFS);
+    } catch {
+      restoreBackup(targetMode);
+      addNotification(
+        'IMPORT FAILED',
+        'Save rebuilt into an invalid world.',
+        NotificationType.ERROR
+      );
+      return;
+    }
+    setExplorerDirId('root');
+    setTeleportTarget(null);
 
     setWindows([]);
     setCascadeCount(0);
@@ -1025,19 +1113,22 @@ const App: React.FC = () => {
   };
 
   const handlePayFuel = () => {
-    const fee = fuelFeeKB(gameState.currentIteration);
-    if (gameState.fuelPaidIter === gameState.currentIteration || gameState.dataKB < fee) return;
-    setGameState(prev => ({
-      ...prev,
-      dataKB: prev.dataKB - fee,
-      fuelPaidIter: prev.currentIteration,
-    }));
+    setGameState(prev => {
+      const fee = fuelFeeKB(prev.currentIteration);
+      if (prev.fuelPaidIter === prev.currentIteration || prev.dataKB < fee) return prev;
+      return {
+        ...prev,
+        dataKB: prev.dataKB - fee,
+        fuelPaidIter: prev.currentIteration,
+      };
+    });
     addNotification('FUEL LOADED', 'The handoff accepts your data.', NotificationType.SUCCESS);
   };
 
   const handleAscendComplete = () => {
-    const nextIteration = gameState.currentIteration + 1;
-    const newScore = Math.max(gameState.highScore, nextIteration);
+    if (!getGateStatus(gameStateRef.current).complete) return;
+    const nextIteration = gameStateRef.current.currentIteration + 1;
+    const newScore = Math.max(gameStateRef.current.highScore, nextIteration);
 
     if (nextIteration >= 2) unlockAchievement('letting_go');
     if (nextIteration >= 3) unlockAchievement('regular');
@@ -1082,20 +1173,20 @@ const App: React.FC = () => {
 
   const handleOpenItem = (file: FileNode) => {
     if (!file.packageContent) return;
+    if (gameStateRef.current.consumedIds.includes(file.id)) return;
 
     const { type, value, multiplier } = file.packageContent;
     let msg = '';
 
     if (file.type === FileType.MODULE) {
-      let effectiveType = type;
-      let effectiveValue = value;
-
-      if (type === 'AUTOMINER_SPEED' && gameState.autoMinerInterval <= AUTOMINER_MIN_INTERVAL) {
-        effectiveType = 'AUTOMINER_POWER';
-        effectiveValue = Math.floor(Math.random() * 3) + 1;
-      }
+      const atFloor =
+        type === 'AUTOMINER_SPEED' &&
+        gameStateRef.current.autoMinerInterval <= AUTOMINER_MIN_INTERVAL;
+      const effectiveType = atFloor ? 'AUTOMINER_POWER' : type;
+      const effectiveValue = atFloor ? 2 : value;
 
       setGameState(prev => {
+        if (prev.consumedIds.includes(file.id)) return prev;
         const newState = {
           ...prev,
           consumedIds: [...prev.consumedIds, file.id],
@@ -1131,6 +1222,7 @@ const App: React.FC = () => {
       seeLore('lore_modules');
     } else {
       setGameState(prev => {
+        if (prev.consumedIds.includes(file.id)) return prev;
         const newState = {
           ...prev,
           consumedIds: [...prev.consumedIds, file.id],
@@ -1195,6 +1287,7 @@ const App: React.FC = () => {
   );
 
   const handleUnlockedFile = (file: FileNode) => {
+    if (gameStateRef.current.unlockedFileIds.includes(file.id)) return;
     if (file.secretId === 'ghost') unlockAchievement('ghost');
     seeFile(file);
     setWindows(prev =>
@@ -1202,7 +1295,20 @@ const App: React.FC = () => {
     );
     const isVault = file.name.endsWith('.zip') || file.id.startsWith('vault_');
     if (isVault) {
-      setGameState(prev => ({ ...prev, passes: prev.passes + 1 }));
+      setGameState(prev => {
+        if (prev.unlockedFileIds.includes(file.id)) return prev;
+        return {
+          ...prev,
+          passes: Math.min(prev.passes + 1, 3),
+          unlockedFileIds: [...prev.unlockedFileIds, file.id],
+        };
+      });
+    } else {
+      setGameState(prev =>
+        prev.unlockedFileIds.includes(file.id)
+          ? prev
+          : { ...prev, unlockedFileIds: [...prev.unlockedFileIds, file.id] }
+      );
     }
     addNotification(
       isVault ? 'VAULT DECRYPTED' : 'CACHE DECRYPTED',
@@ -1266,17 +1372,19 @@ const App: React.FC = () => {
   };
 
   const handleMinigameWin = (gameId: string) => {
-    const iter = gameState.currentIteration;
-    if (gameState.arcadeWins[gameId] === iter) return;
-    const wins = MINIGAMES.filter(
-      g => g.id === gameId || gameState.arcadeWins[g.id] === iter
-    ).length;
-    setGameState(prev => ({
-      ...prev,
-      arcadeWins: { ...prev.arcadeWins, [gameId]: prev.currentIteration },
-    }));
-    if (wins <= 1) unlockAchievement('arcade_rookie');
-    if (wins >= MINIGAMES.length) unlockAchievement('arcade_master');
+    if (gameStateRef.current.arcadeWins[gameId] === gameStateRef.current.currentIteration) return;
+    setGameState(prev => {
+      if (prev.arcadeWins[gameId] === prev.currentIteration) return prev;
+      const wins = MINIGAMES.filter(
+        g => g.id === gameId || prev.arcadeWins[g.id] === prev.currentIteration
+      ).length;
+      if (wins <= 1) setTimeout(() => unlockAchievement('arcade_rookie'), 0);
+      if (wins >= MINIGAMES.length) setTimeout(() => unlockAchievement('arcade_master'), 0);
+      return {
+        ...prev,
+        arcadeWins: { ...prev.arcadeWins, [gameId]: prev.currentIteration },
+      };
+    });
     addNotification(
       'MINIGAME CLEARED',
       'Score recorded for this iteration.',
@@ -1285,10 +1393,24 @@ const App: React.FC = () => {
   };
 
   const handleRedeemPass = (gameId: string) => {
-    if (gameState.passes < 1) return;
-    if (gameState.arcadeWins[gameId] === gameState.currentIteration) return;
-    setGameState(prev => ({ ...prev, passes: prev.passes - 1 }));
-    handleMinigameWin(gameId);
+    if (
+      gameStateRef.current.passes < 1 ||
+      gameStateRef.current.arcadeWins[gameId] === gameStateRef.current.currentIteration
+    )
+      return;
+    setGameState(prev => {
+      if (prev.passes < 1 || prev.arcadeWins[gameId] === prev.currentIteration) return prev;
+      return {
+        ...prev,
+        passes: prev.passes - 1,
+        arcadeWins: { ...prev.arcadeWins, [gameId]: prev.currentIteration },
+      };
+    });
+    addNotification(
+      'MINIGAME CLEARED',
+      'Score recorded for this iteration.',
+      NotificationType.SUCCESS
+    );
   };
 
   const handleOpenZip = () => {
@@ -1403,6 +1525,7 @@ const App: React.FC = () => {
           )}
           {win.appId === AppId.TEXT_VIEWER && (
             <TextViewer
+              key={(win.data as FileNode)?.id ?? win.id}
               file={win.data as FileNode}
               onUnlocked={handleUnlockedFile}
               onRead={handleReadFile}

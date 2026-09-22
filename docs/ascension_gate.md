@@ -4,13 +4,13 @@ Running `ascend.exe` opens the gate dialog instead of ascending directly. All it
 
 ## Checklist
 
-1. **Trail**: the lore entry for `archivist_N` is recorded (`lore_archivist_N` seen), with `N = min(iteration, 5)`.
+1. **Trail**: the layer's `archivist_N` file is opened this iteration (`trailProof[iteration]` stamped on read, with `N = min(iteration, 5)`). Solving the bought trail scramble also satisfies it. Re-reading an old layer's entry does not count.
 2. **Minigames**: beat the 3 picked cabinets this iteration. The pick rotates deterministically from `runSeed` and iteration.
-3. **Fuel**: pay `25 MB * iteration`, once per iteration.
+3. **Fuel**: pay `25 MB * iteration`, once per iteration. The deduction re-checks the live balance, so a double click pays once.
 
 ## Passes
 
-Opening the hold vault with the ghost password grants 1 pass. From any minigame window, a pass clears one picked game without playing it. Opening any other locked file only posts a notification and grants nothing.
+Opening the hold vault with the ghost password grants 1 pass, once per vault file. Passes cap at 3. From any minigame window, a pass clears one picked game without playing it. Redeeming spends the pass and records the win in one update. Opening any other locked file only posts a notification and grants nothing.
 
 ## Locate
 

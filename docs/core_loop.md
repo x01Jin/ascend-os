@@ -25,7 +25,7 @@ Each iteration:
 
 ## What persists
 
-Data, efficiency level, Auto-Miner power and interval, Auto-Marker inventory and toggle, Overclock bank balances, desktop shortcuts and wallpaper, `runSeed`, high score, achievements, secrets, lore, tool unlocks, and passes carry over.
+Data, efficiency level, Auto-Miner power and interval, Auto-Marker inventory and toggle, Overclock bank balances, desktop shortcuts and wallpaper, `runSeed`, high score, achievements, secrets, lore, tool unlocks, vault unlocks, trail proof, and passes (cap 3) carry over.
 
 ## What resets
 

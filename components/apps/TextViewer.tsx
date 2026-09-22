@@ -78,7 +78,8 @@ const TrailUnscramble: React.FC<{ trail: TrailScramble }> = ({ trail }) => {
 const TextViewer: React.FC<TextViewerProps> = ({ file, onUnlocked, onRead, trail }) => {
   const [attempt, setAttempt] = useState('');
   const [failed, setFailed] = useState(false);
-  const locked = !!file.password;
+  const [unlocked, setUnlocked] = useState(false);
+  const locked = !!file.password && !unlocked;
   const showTrail = isTrailLocateFileId(file.id) && trail !== undefined;
 
   React.useEffect(() => {
@@ -100,7 +101,9 @@ const TextViewer: React.FC<TextViewerProps> = ({ file, onUnlocked, onRead, trail
   }
 
   const submit = () => {
+    if (unlocked) return;
     if (attempt.trim().toUpperCase() === file.password?.toUpperCase()) {
+      setUnlocked(true);
       onUnlocked?.(file);
     } else {
       setFailed(true);

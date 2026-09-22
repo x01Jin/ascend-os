@@ -53,7 +53,7 @@ const Minigames: React.FC<MinigameProps> = ({
         )}
       </div>
       <div className="flex-1 min-h-0 overflow-hidden flex items-center justify-center p-2">
-        <Game key={gameId} onWin={() => onWin(gameId)} />
+        <Game key={`${gameId}_${currentIteration}`} onWin={() => onWin(gameId)} />
       </div>
     </div>
   );

@@ -29,11 +29,14 @@ export const gateMinigames = (state: GameState): MinigameId[] => {
 export const getGateStatus = (state: GameState): { items: GateItem[]; complete: boolean } => {
   const part = gatePartFor(state.currentIteration);
   const picked = gateMinigames(state);
+  const trailDone =
+    state.trailProof[state.currentIteration] === state.currentIteration ||
+    state.unscrambledTrail.includes(state.currentIteration);
   const items: GateItem[] = [
     {
       id: 'trail',
       label: `Read archivist_${part} this run of the trail`,
-      done: state.loreSeen.includes(`lore_archivist_${part}`),
+      done: trailDone,
     },
     ...picked.map(id => {
       const game = MINIGAMES.find(g => g.id === id);

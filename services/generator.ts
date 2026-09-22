@@ -59,7 +59,7 @@ const generateFileContent = (parentId: string, _iteration: number) => {
   return `[MANIFEST LOG-03] 03:13 COPY CHECKSUM OK. 03:14 COPY MISMATCH. ${parentId} SEALED 03:12.`;
 };
 
-const generatePackageContent = (): PackageContent => {
+const generatePackageContent = (iteration: number): PackageContent => {
   const roll = random();
 
   if (roll > 0.9) {
@@ -69,7 +69,7 @@ const generatePackageContent = (): PackageContent => {
   } else if (roll > 0.6) {
     return { type: 'AUTOMARK', value: randInt(3, 6) };
   } else {
-    const mb = randInt(8, 14);
+    const mb = randInt(8, 14) + 2 * (Math.max(1, iteration) - 1);
     return { type: 'DATA', value: mb * 1024 };
   }
 };
@@ -144,7 +144,7 @@ const generateJunkStructure = (
         type: FileType.PACKAGE,
         extension: FileExtension.PKG,
         content: supplyLabel(supplyName, iteration),
-        packageContent: generatePackageContent(),
+        packageContent: generatePackageContent(iteration),
         parentId: parent.id,
         isWinningPath: false,
       };
@@ -285,7 +285,7 @@ export const generateFileSystem = (
           type: FileType.PACKAGE,
           extension: FileExtension.PKG,
           content: supplyLabel(supplyName, iteration),
-          packageContent: generatePackageContent(),
+          packageContent: generatePackageContent(iteration),
           parentId: node.id,
           isWinningPath: false,
         };

@@ -56,7 +56,13 @@ const CoreSettings: React.FC<CoreSettingsProps> = ({
     action: () => void;
     isDanger: boolean;
     confirmLabel?: string;
-  }>({ isOpen: false, title: '', message: '', action: () => {}, isDanger: false });
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    action: () => {},
+    isDanger: false,
+  });
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -77,12 +83,19 @@ const CoreSettings: React.FC<CoreSettingsProps> = ({
     isDanger = false,
     confirmLabel = 'Confirm'
   ) => {
-    setConfirmState({ isOpen: true, title, message, action, isDanger, confirmLabel });
+    setConfirmState({
+      isOpen: true,
+      title,
+      message,
+      action,
+      isDanger,
+      confirmLabel,
+    });
   };
 
   const handleApplySeed = () => {
-    const num = parseInt(seedInput);
-    if (!isNaN(num)) {
+    const num = Number(seedInput.trim());
+    if (Number.isInteger(num) && Number.isFinite(num)) {
       openConfirm(
         'RECONSTRUCT UNIVERSE',
         `Injecting Seed: ${num}\n\nWARNING: This will wipe all current progress (Factory Reset) and restart the system with the new seed.\n\nThis action cannot be undone.`,
@@ -114,7 +127,7 @@ const CoreSettings: React.FC<CoreSettingsProps> = ({
   };
 
   const handleExport = () => {
-    const json = exportSave(gameState);
+    const json = exportSave(gameState, false);
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -193,7 +206,11 @@ const CoreSettings: React.FC<CoreSettingsProps> = ({
           <div
             key={char.id}
             className="absolute text-xs text-red-800 font-bold opacity-0 animate-pulse"
-            style={{ left: `${char.x}%`, top: `${char.y}%`, animation: 'ping 1s forwards' }}
+            style={{
+              left: `${char.x}%`,
+              top: `${char.y}%`,
+              animation: 'ping 1s forwards',
+            }}
           >
             {char.text}
           </div>
@@ -321,6 +338,9 @@ const CoreSettings: React.FC<CoreSettingsProps> = ({
               className="hidden"
             />
           </div>
+          <p className="text-[11px] text-gray-600 font-mono">
+            Export excludes wallpaper; wallpaper stays on this device.
+          </p>
         </div>
 
         <div className="space-y-4 pb-4">

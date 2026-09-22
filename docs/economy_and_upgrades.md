@@ -6,9 +6,9 @@ Data is measured in KB. Displays convert at 1024 KB = 1 MB and 1024 MB = 1 GB.
 
 ## Data Miner
 
-Clicking MINE DATA pays `(50 + efficiencyLevel * 5) * activeBoost` KB per click.
+Clicking MINE DATA pays `(50 + efficiencyLevel * 5) * activeBoost` KB per click. Boost applies to manual mining clicks only; the Auto-Miner always pays its flat tick.
 
-The window shows a data stream visual, floating rate text, Overclock toggle buttons for each banked multiplier, and the Auto-Miner readout.
+The window shows a data stream visual, floating rate text, Overclock toggle buttons for each banked multiplier, and the Auto-Miner readout. Switching the browser tab off pauses the active boost and keeps the banked remainder.
 
 ## Auto-Miner
 
@@ -25,7 +25,7 @@ Green upload icons in the Explorer. Spawn in about 5% of junk slots. Each instal
 
 Orange package icons. Spawn in about 13% of junk slots. Opening one consumes it and pays immediately:
 
-- **Data Cache (60%)**: 8-14 MB.
+- **Data Cache (60%)**: `8-14 MB + 2 MB` per iteration above the first.
 - **Auto-Mark Bundle (30%)**: 3-6 Auto-Markers.
 - **Overclock Chip (10%)**: 1-5 seconds into a random bank (x2-x5).
 
@@ -33,13 +33,13 @@ Orange package icons. Spawn in about 13% of junk slots. Opening one consumes it 
 
 ### Miner efficiency
 
-Permanent `+5` KB per click level. Cost: `floor(10240 * 1.35^level)` KB.
+Permanent `+5` KB per click level. Cost: `floor(10240 * 1.15^level)` KB.
 
 ### Overclock banks
 
-Banked seconds per multiplier. Buying adds time; toggling a multiplier on in the Data Miner drains its bank in real time. Switching or turning off preserves the remainder.
+Banked seconds per multiplier. Buying adds time; toggling a multiplier on in the Data Miner drains its bank by wall-clock time. Switching or turning off preserves the remainder. Purchases check the live balance inside the update, so a double click can only buy once.
 
-- Banks: x2, x3, x4 purchasable. x5 comes only from supply drops; toggle it from the Data Miner once banked.
+- Banks: x2, x3, x4, x5 purchasable. x5 also drops from supply chips; toggle any banked multiplier from the Data Miner.
 - Cost: `seconds * 5120 * 2^(multiplier - 2)` KB.
 - Bundles: +5 or +10 seconds per purchase.
 
