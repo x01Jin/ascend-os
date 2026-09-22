@@ -6,8 +6,6 @@ export interface GateItem {
   done: boolean;
 }
 
-// Five minigame exes, scattered separately. Wins are per iteration:
-// each id maps to the iteration it was last beaten in.
 export const ARCADE_GAMES = [
   { id: 'pong', title: 'Pong', goal: 'First to 5 vs the machine.' },
   { id: 'dino', title: 'Dino Run', goal: 'Survive 20 seconds.' },
@@ -18,19 +16,13 @@ export const ARCADE_GAMES = [
 
 export type ArcadeGameId = (typeof ARCADE_GAMES)[number]['id'];
 
-// 25 MB per iteration, paid once per iteration from the Ascension dialog
 export const fuelFeeKB = (iteration: number): number => 25 * 1024 * iteration;
 
-// Archivist part guarding this iteration: parts 1-4 own their iteration,
-// part 5 covers iteration 5 and everything above
 export const gatePartFor = (iteration: number): number => Math.min(iteration, 5);
 
 export const arcadeWinsThisIteration = (state: GameState): number =>
   ARCADE_GAMES.filter(g => state.arcadeWins[g.id] === state.currentIteration).length;
 
-// Three ferry cabinets per shell, picked deterministically from the run
-// seed and iteration: a rotation offset over the cabinet list, stable
-// within a run of the trail.
 export const gateMinigames = (state: GameState): ArcadeGameId[] => {
   const start = (state.runSeed + state.currentIteration * 7919) % ARCADE_GAMES.length;
   return [0, 1, 2].map(i => ARCADE_GAMES[(start + i) % ARCADE_GAMES.length].id);

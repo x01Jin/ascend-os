@@ -1,24 +1,21 @@
 import { AppId, GameState } from './types';
 
 export const APP_NAME = 'Ascend OS';
-export const STORAGE_KEY = 'ascend_game_state_v2'; // Incremented version
-export const SCAN_COST = 10240; // 10 MB in KB, iteration 1 price
+export const SCAN_COST = 10 * 1024;
 export const scanCostFor = (iteration: number): number =>
-  SCAN_COST + (Math.max(1, iteration) - 1) * 2048; // +2 MB per iteration
-export const CLICK_VALUE_BASE = 50; // 50 KB base
-export const CLICK_UPGRADE_INCREMENT = 5; // +5 KB per level
+  SCAN_COST + (Math.max(1, iteration) - 1) * (2 * 1024);
+export const CLICK_VALUE_BASE = 50;
+export const CLICK_UPGRADE_INCREMENT = 5;
 
-// Costs
-export const UPGRADE_COST_BASE = 10240; // 10 MB start
-export const UPGRADE_COST_GROWTH = 1.35; // steeper curve, mining must keep up
-export const BOOST_COST_BASE_PER_SEC = 5120; // 5 MB per second base
-export const AUTOMARK_COST_PER_UNIT = 5120; // 5 MB per mark
-export const MAP_UNLOCK_COST = 100 * 1024; // 100 MB
-export const RADAR_UNLOCK_COST = 250 * 1024; // 250 MB
+export const UPGRADE_COST_BASE = 10 * 1024;
+export const UPGRADE_COST_GROWTH = 1.35;
+export const BOOST_COST_BASE_PER_SEC = 5 * 1024;
+export const AUTOMARK_COST_PER_UNIT = 5 * 1024;
+export const MAP_UNLOCK_COST = 100 * 1024;
+export const RADAR_UNLOCK_COST = 250 * 1024;
 
-// Auto Miner Defaults
-export const AUTOMINER_DEFAULT_INTERVAL = 3000; // 3 seconds
-export const AUTOMINER_MIN_INTERVAL = 300; // 0.3 seconds cap
+export const AUTOMINER_DEFAULT_INTERVAL = 3000;
+export const AUTOMINER_MIN_INTERVAL = 300;
 
 export const DESKTOP_GRID = {
   WIDTH: 96,
@@ -52,7 +49,7 @@ export const INITIAL_GAME_STATE: GameState = {
   isAutoMarkEnabled: false,
   autoMinerData: 0,
   autoMinerInterval: AUTOMINER_DEFAULT_INTERVAL,
-  runSeed: 0, // 0 indicates uninitialized, will be replaced by storage loader or init
+  runSeed: 0,
   consumedIds: [],
   modifiedNodes: {},
   isDevModeEnabled: false,

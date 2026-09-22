@@ -16,7 +16,7 @@ import { ContextMenuItem } from './ContextMenu';
 interface TaskbarProps {
   windows: WindowState[];
   activeWindowId: string | null;
-  onOpenApp: (appId: AppId, data?: any) => void;
+  onOpenApp: (appId: AppId, data?: unknown) => void;
   onFocusWindow: (windowId: string) => void;
   onCloseWindow: (windowId: string) => void;
   onMinimize: (windowId: string) => void;
@@ -95,7 +95,6 @@ const Taskbar: React.FC<TaskbarProps> = ({
 
   return (
     <>
-      {/* Start Menu */}
       {isStartOpen && (
         <div
           className="absolute bottom-12 left-2 w-64 bg-gray-800/90 backdrop-blur-md border border-gray-600 rounded-lg shadow-2xl z-[9999] overflow-hidden flex flex-col animate-in slide-in-from-bottom-2 fade-in duration-200"
@@ -137,12 +136,10 @@ const Taskbar: React.FC<TaskbarProps> = ({
         </div>
       )}
 
-      {/* Click outside listener to close start menu (simple overlay) */}
       {isStartOpen && (
         <div className="fixed inset-0 z-[9998]" onClick={() => setIsStartOpen(false)}></div>
       )}
 
-      {/* Bar */}
       <div
         className="absolute bottom-0 left-0 right-0 h-10 bg-gray-900/80 backdrop-blur-md border-t border-white/5 flex items-center px-2 gap-2 z-[9999]"
         onContextMenu={e => {
@@ -150,7 +147,6 @@ const Taskbar: React.FC<TaskbarProps> = ({
           e.stopPropagation();
         }}
       >
-        {/* Start Button */}
         <button
           onClick={toggleStart}
           className={`p-1.5 rounded transition-colors ${isStartOpen ? 'bg-blue-600/50 text-blue-200' : 'hover:bg-white/10 text-gray-300'}`}
@@ -158,10 +154,8 @@ const Taskbar: React.FC<TaskbarProps> = ({
           <Box size={20} />
         </button>
 
-        {/* Separator */}
         <div className="w-[1px] h-6 bg-white/10 mx-1"></div>
 
-        {/* Window List */}
         <div className="flex-1 flex items-center gap-1 overflow-x-auto no-scrollbar">
           {windows.map(win => (
             <button
@@ -186,7 +180,6 @@ const Taskbar: React.FC<TaskbarProps> = ({
           ))}
         </div>
 
-        {/* System Tray */}
         <div className="flex items-center gap-3 px-3 text-xs text-gray-400 font-mono border-l border-white/10 pl-4">
           <button
             onClick={() => onOpenApp(AppId.ACHIEVEMENTS)}

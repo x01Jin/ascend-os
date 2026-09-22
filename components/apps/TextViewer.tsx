@@ -14,7 +14,6 @@ const TextViewer: React.FC<TextViewerProps> = ({ file, onUnlocked, onRead }) => 
 
   React.useEffect(() => {
     onRead?.(file);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file.id]);
 
   if (!locked) {

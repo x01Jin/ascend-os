@@ -34,6 +34,17 @@ const TOOLS = [
   },
 ];
 
+const formatSize = (kb: number) => {
+  if (kb >= 1024 * 1024) return `${(kb / (1024 * 1024)).toFixed(2)} GB`;
+  if (kb >= 1024) return `${(kb / 1024).toFixed(1)} MB`;
+  return `${kb.toLocaleString()} KB`;
+};
+
+const getBoostCost = (mult: number, secs: number) => {
+  const scale = Math.pow(2, mult - 2);
+  return secs * BOOST_COST_BASE_PER_SEC * scale;
+};
+
 const Updates: React.FC<UpdatesProps> = ({
   gameState,
   onPurchaseUpgrade,
@@ -44,24 +55,10 @@ const Updates: React.FC<UpdatesProps> = ({
   const [selectedMultiplier, setSelectedMultiplier] = useState(2);
   const [autoMarkAmount, setAutoMarkAmount] = useState(5);
 
-  const formatSize = (kb: number) => {
-    if (kb >= 1024 * 1024) return `${(kb / (1024 * 1024)).toFixed(2)} GB`;
-    if (kb >= 1024) return `${(kb / 1024).toFixed(1)} MB`;
-    return `${kb.toLocaleString()} KB`;
-  };
-
-  // Efficiency Upgrade Logic
   const currentEfficiencyCost = Math.floor(
     UPGRADE_COST_BASE * Math.pow(UPGRADE_COST_GROWTH, gameState.efficiencyLevel)
   );
   const canAffordUpgrade = gameState.dataKB >= currentEfficiencyCost;
-
-  // Boost Logic
-  const getBoostCost = (mult: number, secs: number) => {
-    // Cost scales with multiplier. x2 = base, x3 = 2*base, x4 = 4*base
-    const scale = Math.pow(2, mult - 2);
-    return secs * BOOST_COST_BASE_PER_SEC * scale;
-  };
 
   const handleBuyBoost = (seconds: number) => {
     const cost = getBoostCost(selectedMultiplier, seconds);
@@ -70,7 +67,6 @@ const Updates: React.FC<UpdatesProps> = ({
     }
   };
 
-  // AutoMark Logic
   const autoMarkCost = autoMarkAmount * AUTOMARK_COST_PER_UNIT;
   const canAffordAutoMark = gameState.dataKB >= autoMarkCost;
 
@@ -81,7 +77,6 @@ const Updates: React.FC<UpdatesProps> = ({
 
   return (
     <div className="h-full flex flex-col bg-gray-950 text-gray-200 select-none">
-      {/* Header / Currency Display */}
       <div className="bg-gray-900 p-4 border-b border-gray-800 flex justify-between items-center shadow-lg z-10">
         <div className="flex items-center gap-2">
           <Download className="text-purple-400" />
@@ -93,7 +88,6 @@ const Updates: React.FC<UpdatesProps> = ({
       </div>
 
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
-        {/* Efficiency Upgrade Card */}
         <div className="bg-gray-900/50 border border-gray-700 rounded-lg p-4 relative overflow-hidden group">
           <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
             <Zap size={100} />
@@ -139,7 +133,6 @@ const Updates: React.FC<UpdatesProps> = ({
           </div>
         </div>
 
-        {/* New Overclock Card */}
         <div className="bg-gray-900/50 border border-gray-700 rounded-lg p-4 relative overflow-hidden group">
           <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
             <Clock size={100} />
@@ -157,7 +150,6 @@ const Updates: React.FC<UpdatesProps> = ({
             </div>
           </div>
 
-          {/* Multiplier Selector */}
           <div className="flex gap-2 mb-4">
             {[2, 3, 4].map(m => (
               <button
@@ -178,7 +170,6 @@ const Updates: React.FC<UpdatesProps> = ({
             ))}
           </div>
 
-          {/* Purchase Buttons */}
           <div className="mt-4 bg-black/20 p-3 rounded border border-gray-800 flex flex-col gap-2">
             <div className="text-xs text-center text-gray-500 font-mono mb-1">
               ADD TIME TO x{selectedMultiplier} BANK
@@ -208,7 +199,6 @@ const Updates: React.FC<UpdatesProps> = ({
           </div>
         </div>
 
-        {/* Consumable: Auto-Mark */}
         <div className="bg-gray-900/50 border border-gray-700 rounded-lg p-4 relative overflow-hidden group">
           <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
             <Eye size={100} />
@@ -285,7 +275,6 @@ const Updates: React.FC<UpdatesProps> = ({
           </p>
         </div>
 
-        {/* Unlockable Tools */}
         <div className="bg-gray-900/50 border border-purple-900 rounded-lg p-4">
           <h3 className="text-xl font-bold text-white mb-1">Unlockable Tools</h3>
           <p className="text-xs text-gray-500 mb-4">

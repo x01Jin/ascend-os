@@ -26,17 +26,17 @@ export interface FileNode {
   name: string;
   type: FileType.FILE | FileType.PACKAGE | FileType.MODULE;
   extension: FileExtension;
-  content: string; // Text content or special instructions for EXE
+  content: string;
   packageContent?: PackageContent;
   parentId: string | null;
   isMarked?: boolean;
-  markKind?: MarkKind; // gate marks render purple and pulse
-  isWinningPath?: boolean; // True if this file is ascend.exe
-  isScanned?: boolean; // True if revealed by signal tracer
-  password?: string; // Set for locked puzzle files, checked by TextViewer
-  secretId?: string; // Secret awarded when this file is solved or read
-  loreId?: string; // Lore fragment shown or awarded with this file
-  special?: boolean; // Puzzle txt files, rendered with a subtle glow
+  markKind?: MarkKind;
+  isWinningPath?: boolean;
+  isScanned?: boolean;
+  password?: string;
+  secretId?: string;
+  loreId?: string;
+  special?: boolean;
 }
 
 export interface DirectoryNode {
@@ -47,8 +47,8 @@ export interface DirectoryNode {
   parentId: string | null;
   isMarked?: boolean;
   markKind?: MarkKind;
-  isWinningPath?: boolean; // True if this folder leads to ascend.exe
-  isScanned?: boolean; // True if revealed by signal tracer
+  isWinningPath?: boolean;
+  isScanned?: boolean;
 }
 
 export type FileSystemNode = FileNode | DirectoryNode;
@@ -96,34 +96,28 @@ export interface GameStats {
 export interface GameState {
   currentIteration: number;
   highScore: number;
-  dataKB: number; // Currency in Kilobytes (Renamed from storageKB)
+  dataKB: number;
   shortcuts: DesktopShortcut[];
-  wallpaper?: string; // Base64 string of the background image
+  wallpaper?: string;
 
-  // Upgrades & Boosts
-  efficiencyLevel: number; // +5KB per level
+  efficiencyLevel: number;
 
-  // New Boost System
-  boostBank: Record<number, number>; // Multiplier -> Milliseconds remaining
-  activeBoostMultiplier: number | null; // Currently active multiplier
+  boostBank: { 2: number; 3: number; 4: number; 5: number };
+  activeBoostMultiplier: number | null;
 
-  autoMarkCount: number; // Amount of auto-marks available
-  isAutoMarkEnabled: boolean; // Toggle state for Explorer
+  autoMarkCount: number;
+  isAutoMarkEnabled: boolean;
 
-  // Auto Miner Stats
-  autoMinerData: number; // KB per tick
-  autoMinerInterval: number; // ms per tick
+  autoMinerData: number;
+  autoMinerInterval: number;
 
-  // Randomness & Persistence
-  runSeed: number; // Random seed for this playthrough to ensure unique start
-  consumedIds: string[]; // List of consumed/deleted file IDs to prevent refresh exploits
-  modifiedNodes: Record<string, NodeModification>; // Persistence for Renames, Marks, and Scans
+  runSeed: number;
+  consumedIds: string[];
+  modifiedNodes: Record<string, NodeModification>;
 
-  // Core / Dev Settings
   isDevModeEnabled: boolean;
   isAscendRootEnabled: boolean;
 
-  // Progression: achievements, secrets, lore
   achievements: Record<string, number>;
   secretsFound: string[];
   loreSeen: string[];
@@ -131,11 +125,10 @@ export interface GameState {
   secretsZipSeen: boolean;
   hasSeenThankYou: boolean;
 
-  // Ascension gate + tools
-  arcadeWins: Record<string, number>; // game id -> iteration last beaten
-  passes: number; // minigame passes held
-  fuelPaidIter: number; // iteration the ascend fuel fee was paid for
-  unlockedTools: string[]; // 'map' | 'radar'
+  arcadeWins: Record<string, number>;
+  passes: number;
+  fuelPaidIter: number;
+  unlockedTools: string[];
 }
 
 export interface WindowState {
@@ -145,7 +138,7 @@ export interface WindowState {
   zIndex: number;
   isMinimized: boolean;
   isMaximized?: boolean;
-  data?: any; // For passing file content or path
+  data?: unknown;
   position?: { x: number; y: number };
 }
 

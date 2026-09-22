@@ -24,6 +24,7 @@ import {
 } from '../../types';
 import { ContextMenuItem } from '../ContextMenu';
 import { scanCostFor } from '../../constants';
+import { findNodeById as findNode } from '../../services/filesystem';
 
 interface ExplorerProps {
   root: DirectoryNode;
@@ -32,14 +33,11 @@ interface ExplorerProps {
   onUpdateNode: (id: string, updates: Partial<FileNode | DirectoryNode>) => void;
   dataKB: number;
   onSpendData: (amount: number) => void;
-  // Auto Mark Props
   isAutoMarkEnabled: boolean;
   autoMarkCount: number;
   onToggleAutoMark: () => void;
   onConsumeAutoMark: () => void;
-  // Notifications
   onShowNotification: (title: string, message: string, type: NotificationType) => void;
-  // Progression hooks
   onNavigateDir?: (dir: DirectoryNode) => void;
   onOffering?: () => void;
   onProperties?: (file: FileSystemNode) => void;
@@ -47,17 +45,9 @@ interface ExplorerProps {
   currentIteration: number;
 }
 
-// Helper to find a node by ID in the tree
-const findNode = (node: DirectoryNode, id: string): FileSystemNode | null => {
-  if (node.id === id) return node;
-  for (const child of node.children) {
-    if (child.id === id) return child;
-    if (child.type === FileType.FOLDER) {
-      const found = findNode(child as DirectoryNode, id);
-      if (found) return found;
-    }
-  }
-  return null;
+const formatSize = (kb: number) => {
+  if (kb >= 1024) return `${(kb / 1024).toFixed(1)} MB`;
+  return `${kb.toFixed(0)} KB`;
 };
 
 const Explorer: React.FC<ExplorerProps> = ({
@@ -82,20 +72,15 @@ const Explorer: React.FC<ExplorerProps> = ({
   const [history, setHistory] = useState<DirectoryNode[]>([root]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  // Renaming State
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const renameInputRef = useRef<HTMLInputElement>(null);
 
-  // Glitch State
   const [isGlitching, setIsGlitching] = useState(false);
 
-  // Re-sync when root changes (ascension, marking files, external updates).
-  // Adjusted during render instead of in an effect.
   const [prevRoot, setPrevRoot] = useState(root);
   if (prevRoot !== root) {
     setPrevRoot(root);
-    // Reconstruct the history stack using fresh nodes from the new root.
     const newHistory: DirectoryNode[] = [];
     let isPathValid = true;
 
@@ -118,9 +103,6 @@ const Explorer: React.FC<ExplorerProps> = ({
     }
   }
 
-  // Teleport requests from the map / radar tools. Own-state navigation is
-  // applied during render; the parent is notified from an effect since its
-  // callback updates parent state (not callable during render).
   const [appliedTeleport, setAppliedTeleport] = useState<number | null>(null);
   if (teleportTarget && teleportTarget.nonce !== appliedTeleport) {
     setAppliedTeleport(teleportTarget.nonce);
@@ -143,7 +125,6 @@ const Explorer: React.FC<ExplorerProps> = ({
     }
   }, [teleportTarget, root, onNavigateDir]);
 
-  // Focus rename input
   useEffect(() => {
     if (renamingId && renameInputRef.current) {
       renameInputRef.current.focus();
@@ -158,7 +139,6 @@ const Explorer: React.FC<ExplorerProps> = ({
     setRenamingId(null);
     onNavigateDir?.(node);
 
-    // Auto Mark Logic
     if (isAutoMarkEnabled && autoMarkCount > 0 && !node.isMarked) {
       onUpdateNode(node.id, { isMarked: true, markKind: 'auto' });
       onConsumeAutoMark();
@@ -222,7 +202,6 @@ const Explorer: React.FC<ExplorerProps> = ({
     const cost = scanCostFor(currentIteration);
     if (dataKB < cost) return;
 
-    // Offering ritual: named + marked folder answers instead of scanning
     if (currentDir.name.toLowerCase() === 'archivist' && currentDir.isMarked) {
       onOffering?.();
       return;
@@ -232,13 +211,11 @@ const Explorer: React.FC<ExplorerProps> = ({
     const alreadyScanned = currentDir.children.some(c => c.isWinningPath && c.isScanned);
 
     if (alreadyScanned) {
-      // Glitch Mechanic
       setIsGlitching(true);
-      const penalty = Math.floor(Math.random() * 9000) + 1000; // 1-10 MB roughly
+      const penalty = Math.floor(Math.random() * 9000) + 1000;
       onSpendData(penalty);
 
       setTimeout(() => setIsGlitching(false), 500);
-      // REPLACED ALERT WITH NOTIFICATION
       onShowNotification(
         'SYSTEM WARNING',
         `SIGNAL ALREADY ISOLATED.\nREDUNDANT SCAN PENALTY: -${(penalty / 1024).toFixed(2)} MB`,
@@ -272,12 +249,6 @@ const Explorer: React.FC<ExplorerProps> = ({
     alert(`Name: ${child.name}\nType: ${child.type}\nID: ${child.id}\nProtected: Yes`);
   };
 
-  const formatSize = (kb: number) => {
-    if (kb >= 1024) return `${(kb / 1024).toFixed(1)} MB`;
-    return `${kb.toFixed(0)} KB`;
-  };
-
-  // Determine if scan is available
   const scanCost = scanCostFor(currentIteration);
   const canScan = dataKB >= scanCost;
   const isWinningPathHere = currentDir.children.some(c => c.isWinningPath);
@@ -303,7 +274,6 @@ const Explorer: React.FC<ExplorerProps> = ({
         e.stopPropagation();
       }}
     >
-      {/* Toolbar */}
       <div
         className="flex items-center gap-2 p-2 border-b border-gray-800 bg-gray-900/50"
         onClick={e => e.stopPropagation()}
@@ -319,7 +289,6 @@ const Explorer: React.FC<ExplorerProps> = ({
           <Home size={16} />
         </button>
 
-        {/* Breadcrumb / Address Bar */}
         <div className="flex-1 bg-gray-950 border border-gray-700 rounded px-2 py-1 text-xs font-mono text-gray-400 truncate flex items-center">
           <HardDrive size={12} className="mr-2 text-green-500" />
           root/
@@ -329,13 +298,11 @@ const Explorer: React.FC<ExplorerProps> = ({
             .join('/')}
         </div>
 
-        {/* Data Indicator (Small) */}
         <div className="flex items-center gap-2 px-2 text-xs font-mono border-l border-gray-700">
           <Database size={12} className="text-blue-500" />
           <span className="text-gray-400 hidden sm:inline">{formatSize(dataKB)}</span>
         </div>
 
-        {/* Auto Mark Toggle */}
         <button
           onClick={onToggleAutoMark}
           title={`Auto-Mark: ${isAutoMarkEnabled ? 'ON' : 'OFF'} (${autoMarkCount} left)`}
@@ -352,7 +319,6 @@ const Explorer: React.FC<ExplorerProps> = ({
           <span className="hidden sm:inline">{autoMarkCount}</span>
         </button>
 
-        {/* Scan Button */}
         <button
           onClick={handleScan}
           disabled={!canScan}
@@ -372,7 +338,6 @@ const Explorer: React.FC<ExplorerProps> = ({
         </button>
       </div>
 
-      {/* File Grid */}
       <div className="flex-1 min-h-0 overflow-y-auto p-4">
         {currentDir.children.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-gray-600">
@@ -395,7 +360,6 @@ const Explorer: React.FC<ExplorerProps> = ({
                     e.stopPropagation();
                     setSelectedId(child.id);
                     if (isRenaming) {
-                      // keep focus if clicking self while renaming
                     } else {
                       setRenamingId(null);
                     }
@@ -504,7 +468,6 @@ const Explorer: React.FC<ExplorerProps> = ({
         )}
       </div>
 
-      {/* Footer Status */}
       <div
         className="p-1 px-3 bg-gray-900 border-t border-gray-800 text-[10px] text-gray-500 flex justify-between"
         onClick={e => e.stopPropagation()}

@@ -2,8 +2,6 @@ import { ACH_TOTAL } from './achievements';
 import { SECRET_TOTAL } from './secrets';
 import { LORE_TOTAL } from './lore';
 
-// Group weights. Totals are frozen beside the definitions so a later
-// content patch drops progress consciously instead of by accident.
 export const WEIGHT_ACH = 70;
 export const WEIGHT_SEC = 20;
 export const WEIGHT_LORE = 10;

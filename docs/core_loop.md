@@ -1,57 +1,32 @@
-# Core Loop & Ascension
+# Core loop and ascension
 
-## The Objective
+## The objective
 
-The primary goal of **Ascend OS** is to locate and execute the `ascend.exe` file. This file is hidden deep within a procedurally generated file system.
+Find `ascend.exe` in the generated file system and run it. Ascending increments `currentIteration` and regenerates the tree.
 
-## The Game Loop
+## The loop
 
-1. **Boot Sequence**:
-   - Every iteration begins with a BIOS-style boot sequence.
-   - This hides the loading of the initial file system generation.
+1. **Boot**: each iteration opens with a BIOS-style boot sequence while the file system generates.
+2. **Mine**: the Data Miner turns clicks into Data, the currency. The Auto-Miner adds background income once Modules are installed.
+3. **Investigate**: walk the File Explorer. Open `.pkg` supply drops for Data, Auto-Markers, or Overclock time. Spend Data on signal traces to mark the folder that leads to `ascend.exe`.
+4. **Upgrade**: rising trace costs force spending in System Updates (efficiency, Overclock banks, Auto-Markers) and unlocking the map and radar tools.
+5. **Gate**: from the first ascend attempt on, the Ascension Gate checklist blocks the upload. See [Ascension gate](./ascension_gate.md).
+6. **Ascend**: run `ascend.exe`, confirm, pay the fuel fee. The Ascension Sequence plays and the next iteration generates from the same `runSeed`.
 
-2. **Resource Gathering**:
-   - The player starts with 0 KB of Data (initially).
-   - They must use the **Data Miner** to generate "Data" (Currency).
+## Difficulty scaling
 
-3. **Investigation**:
-   - The player navigates the **File Explorer**.
-   - **Supply Drops**: Players look for orange `.pkg` files for quick resource boosts.
-   - **Signal Tracing**: Players use Tracing (costing Data) to identify the correct path amidst the "Junk" folders.
+Each iteration:
 
-4. **Preparation**:
-   - As difficulty increases, the player must upgrade their mining efficiency in **System Updates** to keep up with the rising costs of tracing.
+- **Path depth**: `5 + ceil(iteration * 0.8)`.
+- **Clutter density**: more sibling folders and files per node.
+- **Junk depth**: distractor subtrees grow deeper.
+- **Trace cost**: `10 MB + 2 MB` per iteration above the first.
+- **Fuel fee**: `25 MB` per iteration number.
 
-5. **Ascension**:
-   - Upon finding `ascend.exe`, the player executes it.
-   - A warning is displayed. Confirming it triggers the **Ascension Sequence**.
-   - The system "uploads" consciousness, resets the local file system, and increments the `currentIteration` counter.
+## What persists
 
-## Difficulty Scaling
+Data, efficiency level, Auto-Miner power and interval, Auto-Marker inventory and toggle, Overclock bank balances, desktop shortcuts and wallpaper, `runSeed`, high score, achievements, secrets, lore, tool unlocks, and passes carry over.
 
-With each Ascension (Iteration + 1):
+## What resets
 
-- **Path Depth**: The target file is placed deeper in the folder hierarchy.
-  - Formula: `5 + ceil(iteration * 0.8)`
-- **Clutter Density**: The number of fake folders and files increases.
-- **Junk Depth**: Distractor paths become deeper and more complex.
-
-## Persistence
-
-The following data persists across Ascensions:
-
-- **Data**: Your collected KB/MB/GB remains available.
-- **Efficiency Level**: Mining power upgrades.
-- **Auto-Miner**: Power and interval upgrades.
-- **Auto-Mark Inventory**: Unused auto-markers and toggle state.
-- **Overclock Banks**: Accumulated boost time.
-- **Desktop**: Shortcuts and wallpaper.
-- **Seed**: The `runSeed` is kept; the file system regenerates deterministically for the new iteration.
-- **High Score**: Highest iteration reached.
-
-The following data is **RESET**:
-
-- **File System**: Regenerated for the new iteration using the same `runSeed`.
-- **Modifications**: Cleared (`modifiedNodes`).
-- **Consumed Items**: Cleared (`consumedIds`).
-- **Active Boost**: The active multiplier is cleared; banked time remains.
+The file system regenerates. `modifiedNodes` and `consumedIds` clear. The active boost multiplier clears; banked time stays. The fuel-paid flag applies per iteration.

@@ -4,9 +4,6 @@ export interface SecretDef {
   instructions: string;
 }
 
-// 6 hidden items. Nothing about them is shown until found; the full
-// instructions live inside secrets.zip, granted after the first 23
-// achievements.
 export const SECRETS: SecretDef[] = [
   {
     id: 'ghost',
@@ -35,7 +32,7 @@ export const SECRETS: SecretDef[] = [
     id: 'idol',
     title: 'Cracked Egg',
     instructions:
-      'Rename any .txt file to egg.txt, open it, and click the egg 7 times. It pays 10-50 MB.',
+      'Rename any .txt file to egg (it displays as egg.txt), open it, and click the egg 7 times. It pays 10-50 MB.',
   },
   {
     id: 'properties',
@@ -54,7 +51,7 @@ You earned this by finishing the checklist. What remains is hidden, not gated.
 2. ARCHIVIST CACHE — read archivist_1/2/3/4/5 in order (iterations 1-5). Each part names an exact folder: ghost file, vault, two terminals, buried cache. Part 5 names the buried cache folder. Open it.
 3. OFFERING — rename a folder to "archivist", mark it, TRACE inside it.
 4. CORE WORD — System Help listens for a 4-letter word.
-5. CRACKED EGG — rename any .txt to egg.txt, open it, click 7 times. It pays data.
+5. CRACKED EGG — rename any .txt to egg (it displays as egg.txt), open it, click 7 times. It pays data.
 6. RESPECT THE FERRY — ascend.exe has a Properties page. Read it.
 
 Find all six. The letter waits at 100%.`;

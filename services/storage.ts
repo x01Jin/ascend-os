@@ -29,18 +29,12 @@ export const loadGame = (mode: SaveMode): GameState | null => {
     const key = mode === 'DEV' ? KEY_DEV : KEY_NORMAL;
     const stored = localStorage.getItem(key);
 
-    // Fallback for Normal mode to older keys if v2 not found
     const dataToLoad =
-      stored ||
-      (mode === 'NORMAL'
-        ? localStorage.getItem('ascend_game_state_v2') ||
-          localStorage.getItem('ascend_game_state_v1')
-        : null);
+      stored || (mode === 'NORMAL' ? localStorage.getItem('ascend_game_state_v1') : null);
 
     if (dataToLoad) {
       const parsed = JSON.parse(dataToLoad);
 
-      // Migration: clickerCount -> dataKB (old v1)
       if (
         parsed.clickerCount !== undefined &&
         parsed.dataKB === undefined &&
@@ -50,25 +44,21 @@ export const loadGame = (mode: SaveMode): GameState | null => {
         delete parsed.clickerCount;
       }
 
-      // Migration: storageKB -> dataKB (previous v2)
       if (parsed.storageKB !== undefined && parsed.dataKB === undefined) {
         parsed.dataKB = parsed.storageKB;
         delete parsed.storageKB;
       }
 
-      // Migration: efficiencyBoostEndTime -> boostBank[2]
       if (parsed.efficiencyBoostEndTime && parsed.efficiencyBoostEndTime > Date.now()) {
         const remaining = parsed.efficiencyBoostEndTime - Date.now();
         parsed.boostBank = { 2: remaining, 3: 0, 4: 0, 5: 0 };
         delete parsed.efficiencyBoostEndTime;
       }
 
-      // Ensure boostBank structure exists
       if (!parsed.boostBank) {
         parsed.boostBank = { 2: 0, 3: 0, 4: 0, 5: 0 };
       }
 
-      // Migration: Auto Miner fields
       if (parsed.autoMinerData === undefined) {
         parsed.autoMinerData = 0;
       }
@@ -76,27 +66,18 @@ export const loadGame = (mode: SaveMode): GameState | null => {
         parsed.autoMinerInterval = AUTOMINER_DEFAULT_INTERVAL;
       }
 
-      // Ensure wallpaper field exists
-      if (parsed.wallpaper === undefined) {
-        parsed.wallpaper = undefined;
-      }
-
-      // Migration: Run Seed
-      if (!parsed.runSeed) {
+      if (parsed.runSeed === undefined || parsed.runSeed === 0) {
         parsed.runSeed = Date.now();
       }
 
-      // Migration: Consumed IDs
       if (!parsed.consumedIds) {
         parsed.consumedIds = [];
       }
 
-      // Migration: Modified Nodes
       if (!parsed.modifiedNodes) {
         parsed.modifiedNodes = {};
       }
 
-      // Migration: Core Settings
       if (parsed.isDevModeEnabled === undefined) {
         parsed.isDevModeEnabled = false;
       }
@@ -104,7 +85,6 @@ export const loadGame = (mode: SaveMode): GameState | null => {
         parsed.isAscendRootEnabled = false;
       }
 
-      // Migration: progression fields
       if (!parsed.achievements) {
         parsed.achievements = {};
       }
@@ -138,13 +118,11 @@ export const loadGame = (mode: SaveMode): GameState | null => {
         parsed.unlockedTools = [];
       }
 
-      // Force Dev flags off if loading Normal save (safety check)
       if (mode === 'NORMAL') {
         parsed.isDevModeEnabled = false;
         parsed.isAscendRootEnabled = false;
       }
 
-      // Merge with initial to ensure new fields exist if added later
       return { ...INITIAL_GAME_STATE, ...parsed };
     }
   } catch (e) {
@@ -181,7 +159,7 @@ export const factoryReset = (): void => {
   localStorage.removeItem(KEY_NORMAL);
   localStorage.removeItem(KEY_DEV);
   localStorage.removeItem(KEY_MODE);
-  localStorage.removeItem('ascend_game_state_v1'); // Cleanup old v1
+  localStorage.removeItem('ascend_game_state_v1');
 };
 
 export const exportSave = (state: GameState): string => {
@@ -191,7 +169,6 @@ export const exportSave = (state: GameState): string => {
 export const validateSave = (json: string): GameState | null => {
   try {
     const parsed = JSON.parse(json);
-    // Basic schema check: ensure essential fields exist
     if (
       typeof parsed.currentIteration !== 'number' ||
       typeof parsed.dataKB !== 'number' ||

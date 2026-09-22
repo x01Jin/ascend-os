@@ -10,24 +10,19 @@ interface DesktopIconProps {
   onContextMenu: (e: React.MouseEvent, shortcut: DesktopShortcut) => void;
 }
 
+const getPixelPos = (gx: number, gy: number) => ({
+  x: DESKTOP_GRID.MARGIN_LEFT + gx * DESKTOP_GRID.WIDTH,
+  y: DESKTOP_GRID.MARGIN_TOP + gy * DESKTOP_GRID.HEIGHT,
+});
+
 const DesktopIcon: React.FC<DesktopIconProps> = ({ shortcut, onOpen, onMove, onContextMenu }) => {
   const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 }); // Mouse position
-  // Start on the grid cell, not at the origin; the render-phase sync below
-  // only fires when the grid props change, so mount must place it.
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [currentPos, setCurrentPos] = useState(() => ({
     x: DESKTOP_GRID.MARGIN_LEFT + shortcut.gridX * DESKTOP_GRID.WIDTH,
     y: DESKTOP_GRID.MARGIN_TOP + shortcut.gridY * DESKTOP_GRID.HEIGHT,
-  })); // Pixel position
+  }));
 
-  // Calculate initial pixel position from grid
-  const getPixelPos = (gx: number, gy: number) => ({
-    x: DESKTOP_GRID.MARGIN_LEFT + gx * DESKTOP_GRID.WIDTH,
-    y: DESKTOP_GRID.MARGIN_TOP + gy * DESKTOP_GRID.HEIGHT,
-  });
-
-  // Derive pixel position from grid during render; adjust when props change
-  // while not dragging (avoids setState inside an effect).
   const [prevGrid, setPrevGrid] = useState({ x: shortcut.gridX, y: shortcut.gridY });
   if (!isDragging && (prevGrid.x !== shortcut.gridX || prevGrid.y !== shortcut.gridY)) {
     setPrevGrid({ x: shortcut.gridX, y: shortcut.gridY });
@@ -35,7 +30,7 @@ const DesktopIcon: React.FC<DesktopIconProps> = ({ shortcut, onOpen, onMove, onC
   }
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.button !== 0) return; // Only left click
+    if (e.button !== 0) return;
     e.stopPropagation();
 
     setIsDragging(true);
@@ -60,7 +55,6 @@ const DesktopIcon: React.FC<DesktopIconProps> = ({ shortcut, onOpen, onMove, onC
       if (!isDragging) return;
       setIsDragging(false);
 
-      // Snap to grid logic
       const relX = currentPos.x - DESKTOP_GRID.MARGIN_LEFT + DESKTOP_GRID.WIDTH / 2;
       const relY = currentPos.y - DESKTOP_GRID.MARGIN_TOP + DESKTOP_GRID.HEIGHT / 2;
 
@@ -70,7 +64,6 @@ const DesktopIcon: React.FC<DesktopIconProps> = ({ shortcut, onOpen, onMove, onC
       if (newGridX !== shortcut.gridX || newGridY !== shortcut.gridY) {
         onMove(shortcut.id, newGridX, newGridY);
       } else {
-        // Reset visual position if snapped back to same spot
         setCurrentPos(getPixelPos(shortcut.gridX, shortcut.gridY));
       }
     };
@@ -86,7 +79,6 @@ const DesktopIcon: React.FC<DesktopIconProps> = ({ shortcut, onOpen, onMove, onC
     };
   }, [isDragging, dragStart, currentPos, shortcut, onMove]);
 
-  // Icon Resolver
   const renderIcon = () => {
     const commonClasses =
       'w-14 h-14 rounded-xl flex items-center justify-center transition-colors shadow-lg backdrop-blur-sm border';

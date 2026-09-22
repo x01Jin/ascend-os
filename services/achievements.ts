@@ -6,10 +6,6 @@ export interface AchievementDef {
   requiresIteration?: number;
 }
 
-// 24 items. Later entries gate on iteration, exploration, arcade scores,
-// and tool unlocks so the checklist itself motivates ascending.
-// secrets.zip is granted once the first 23 are earned; opening it earns
-// the 24th.
 export const ACHIEVEMENTS: AchievementDef[] = [
   {
     id: 'cold_boot',

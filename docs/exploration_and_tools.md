@@ -1,49 +1,27 @@
-# Exploration & Tools
+# Exploration and tools
 
 ## File Explorer
 
-The File Explorer is the primary navigation tool.
+Single-click selects, double-click opens. Back and Home buttons walk the history stack. The address bar shows the path, the status bar the object count and directory id.
 
-- **Navigation**: Single-click selects, double-click opens. Use the ArrowLeft back button or Home button to navigate back.
-- **Address Bar**: Shows the current path (e.g., `root/System_102/Logs_99`).
-- **History**: Maintains a navigation stack for the "Back" button functionality.
-- **Status Bar**: Shows object count and the current directory ID.
-- **Icons**: Folders use Folder icons (green when traced), Packages use an orange bouncing Package icon, Modules use a green pulsing Upload icon, `ascend.exe` uses a purple Cpu icon (green pulsing when traced).
+Icons: folders (green when traced), orange bouncing packages, green pulsing modules, purple `ascend.exe` (green pulsing when traced). Gate-marked path nodes render purple and pulse.
 
-## Signal Tracing
+## Signal tracing
 
-Signal Tracing is a mechanic to help find the needle in the haystack.
+TRACE scans the current directory for the folder leading to `ascend.exe` and flags it `isScanned`, highlighted green.
 
-- **Activation**: Click the "TRACE" button in the Explorer toolbar.
-- **Cost**: 10 MB per scan.
-- **Effect**:
-  - The system analyzes the current directory.
-  - It identifies the specific folder that leads to `ascend.exe`.
-  - The target folder is visually highlighted (Green text, glowing icon).
-  - The folder's internal `isScanned` flag is set to true.
-- **Glitch Mechanic (Penalty)**:
-  - If you attempt to Trace a directory where the signal has **already been isolated** (i.e., the path is already glowing green), the system glitches.
-  - **Penalty**: You lose a random amount of Data (roughly 1MB - 10MB) due to redundant cycle waste.
-  - **Visuals**: The Trace button flashes red, "ERROR" appears, and a system notification warns of the penalty.
+- Cost: `scanCostFor(iteration)` = 10 MB plus 2 MB per iteration above the first.
+- Redundant traces glitch: tracing a directory whose signal is already isolated burns 1000-9999 KB, flashes the button red, and posts a notification.
+- Offering: pressing TRACE inside a marked folder named `archivist` spends nothing and offers it instead of scanning.
 
 ## Supply Drops
 
-Orange **Package** files (`.pkg`) can be found hidden in directory structures.
-
-- **Interaction**: Double-click a package to decrypt it.
-- **Rewards**: The package disappears and grants Data, Auto-Markers, or Boost Time immediately. A system notification displays the decrypted contents.
+Double-click a `.pkg` to decrypt it. Rewards land immediately with a notification. See [Economy and upgrades](./economy_and_upgrades.md) for the loot table.
 
 ## Auto-Marker
 
-A utility to map complex directory structures automatically.
+Eye icon toggle. Entering a folder while enabled spends 1 Auto-Marker and stars the folder gold. Opening files spends nothing.
 
-- **Toggle**: Click the Eye icon in the Explorer toolbar to enable/disable. The button shows remaining Auto-Marker count.
-- **Function**:
-  - When enabled, navigating into a folder consumes 1 Auto-Marker from inventory.
-  - The entered folder is marked with a **Gold Star**.
-  - Opening files does not consume Auto-Markers.
-- **Utility**: This allows players to visually track which folders they have already investigated without needing to manually context-menu mark them.
+## Manual marking
 
-## Manual Marking
-
-- Right-click any file or folder and select "Mark" to toggle a star icon manually. This costs nothing.
+Right-click, Mark. Free. Gate marks render purple; manual marks render as stars.

@@ -9,8 +9,6 @@ interface AscensionSequenceProps {
 const AscensionSequence: React.FC<AscensionSequenceProps> = ({ currentIteration, onComplete }) => {
   const [progress, setProgress] = useState(0);
   const [log, setLog] = useState('INITIATING HANDSHAKE...');
-  // Background chaos is generated once via a lazy initializer; Math.random
-  // must not run during render.
   const [particles] = useState(() =>
     Array.from({ length: 20 }, () => ({
       top: Math.random() * 100,
@@ -36,9 +34,8 @@ const AscensionSequence: React.FC<AscensionSequenceProps> = ({ currentIteration,
     let step = 0;
     const interval = setInterval(() => {
       setProgress(prev => {
-        const next = prev + 1; // 0 to 100
+        const next = prev + 1;
 
-        // Update log message based on progress chunks
         if (next % 12 === 0 && step < logs.length) {
           setLog(logs[step]);
           step++;
@@ -51,14 +48,13 @@ const AscensionSequence: React.FC<AscensionSequenceProps> = ({ currentIteration,
         }
         return next;
       });
-    }, 40); // 4 seconds total approx
+    }, 40);
 
     return () => clearInterval(interval);
   }, [onComplete]);
 
   return (
     <div className="w-full h-screen bg-gray-950 text-blue-400 font-mono flex flex-col items-center justify-center relative overflow-hidden z-[9999]">
-      {/* Background Chaos */}
       <div className="absolute inset-0 opacity-10 pointer-events-none">
         {particles.map((p, i) => (
           <div
@@ -86,7 +82,6 @@ const AscensionSequence: React.FC<AscensionSequenceProps> = ({ currentIteration,
           ITERATION {currentIteration} &rarr; {currentIteration + 1}
         </p>
 
-        {/* Progress Bar */}
         <div className="w-full bg-gray-900 h-4 rounded border border-gray-700 overflow-hidden relative">
           <div
             className="h-full bg-blue-500 transition-all duration-75 ease-out relative"

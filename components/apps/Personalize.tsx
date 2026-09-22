@@ -16,17 +16,16 @@ const Personalize: React.FC<PersonalizeProps> = ({ currentWallpaper, onSetWallpa
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Size check (Limit to ~3MB to be safe with LocalStorage 5MB limit along with game data)
     if (file.size > 3 * 1024 * 1024) {
       setError('File size too large. Please select an image under 3MB.');
       return;
     }
 
     const reader = new FileReader();
-    reader.onload = event => {
-      const result = event.target?.result as string;
+    reader.addEventListener('load', event => {
+      const result = (event.target as FileReader | null)?.result as string;
       setPreview(result);
-    };
+    });
     reader.readAsDataURL(file);
   };
 
@@ -41,7 +40,6 @@ const Personalize: React.FC<PersonalizeProps> = ({ currentWallpaper, onSetWallpa
 
   return (
     <div className="h-full flex flex-col bg-gray-950 text-gray-200 select-none">
-      {/* Header */}
       <div className="bg-gray-900 p-4 border-b border-gray-800 flex items-center gap-2 shadow-lg z-10">
         <Image className="text-pink-400" />
         <span className="font-bold text-lg tracking-wide">PERSONALIZATION</span>
@@ -58,7 +56,6 @@ const Personalize: React.FC<PersonalizeProps> = ({ currentWallpaper, onSetWallpa
             </p>
           </div>
 
-          {/* Preview Area */}
           <div className="aspect-video w-full bg-gray-900 border-2 border-dashed border-gray-700 rounded-lg overflow-hidden relative group">
             {preview ? (
               <img src={preview} alt="Wallpaper Preview" className="w-full h-full object-cover" />
@@ -68,7 +65,6 @@ const Personalize: React.FC<PersonalizeProps> = ({ currentWallpaper, onSetWallpa
               </div>
             )}
 
-            {/* Overlay on hover if preview exists, or always if empty */}
             <div
               className={`absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2 transition-opacity ${preview ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}
             >
@@ -98,7 +94,6 @@ const Personalize: React.FC<PersonalizeProps> = ({ currentWallpaper, onSetWallpa
             </div>
           )}
 
-          {/* Action Buttons */}
           <div className="flex justify-between items-center pt-4 border-t border-gray-800">
             <button
               onClick={handleReset}

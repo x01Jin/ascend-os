@@ -1,21 +1,24 @@
 import { DirectoryNode, FileNode, FileType, FileExtension, PackageContent } from '../types';
 import { ARCADE_GAMES } from './gate';
 
-// Deterministic-ish randomness helpers
-let _seed = 1;
+let seedCounter = 1;
 const random = () => {
-  const x = Math.sin(_seed++) * 10000;
+  const x = Math.sin(seedCounter++) * 10000;
   return x - Math.floor(x);
 };
 
 const setSeed = (s: number) => {
-  _seed = s;
+  seedCounter = s;
 };
 
 const randInt = (min: number, max: number) => Math.floor(random() * (max - min + 1)) + min;
 const randChoice = <T>(arr: T[]): T => arr[randInt(0, arr.length - 1)];
 
-// Word Lists
+const placeFile = (host: DirectoryNode, file: FileNode) => {
+  file.parentId = host.id;
+  host.children.push(file);
+};
+
 const FOLDER_NAMES = [
   'System',
   'Bin',
@@ -56,9 +59,7 @@ const LORE_FRAGMENTS = [
   'Null pointer exception in soul.exe.',
 ];
 
-// Content Generators
 const generateFileName = () => {
-  // Use seeded random() instead of Math.random() for consistency
   return `${randChoice(FILE_PREFIXES)}${random() > 0.5 ? randChoice(FILE_SUFFIXES) : ''}_${randInt(100, 999)}`;
 };
 
@@ -72,57 +73,39 @@ const generateFileContent = (iteration: number) => {
   return content;
 };
 
-// Generates Consumables (Data, AutoMark, Boost)
 const generatePackageContent = (): PackageContent => {
   const roll = random();
 
-  // Package Loot Table:
-  // 0.90 - 1.00: Boost (Rare)
-  // 0.60 - 0.90: AutoMark (Uncommon, 2-4 units)
-  // 0.00 - 0.60: Data (Common)
-
   if (roll > 0.9) {
-    // Boost
     const multiplier = randInt(2, 5);
     const duration = randInt(1, 5);
     return { type: 'BOOST', value: duration * 1000, multiplier };
   } else if (roll > 0.6) {
-    // AutoMark
     return { type: 'AUTOMARK', value: randInt(2, 4) };
   } else {
-    // Data
     const mb = randInt(5, 10);
-    return { type: 'DATA', value: mb * 1024 }; // Convert to KB
+    return { type: 'DATA', value: mb * 1024 };
   }
 };
 
-// Generates Persistent Upgrades (Power, Speed)
 const generateModuleContent = (): PackageContent => {
   const roll = random();
 
-  // Module Loot Table:
-  // 0.70 - 1.00: Speed Module
-  // 0.00 - 0.70: Power Module
-
   if (roll > 0.7) {
-    // Speed Module (-10ms to -100ms)
     const reduction = randInt(10, 100);
     return { type: 'AUTOMINER_SPEED', value: reduction };
   } else {
-    // Power Module (+1 to +5 KB)
     const power = randInt(1, 5);
     return { type: 'AUTOMINER_POWER', value: power };
   }
 };
 
-// Recursive Junk Generator
 const generateJunkStructure = (
   parent: DirectoryNode,
   currentDepth: number,
   maxDepth: number,
   iteration: number
 ) => {
-  // If we reached max depth, populate with a few files so it's not empty, then stop.
   if (currentDepth >= maxDepth) {
     const leafFileCount = randInt(1, 3);
     for (let i = 0; i < leafFileCount; i++) {
@@ -141,17 +124,10 @@ const generateJunkStructure = (
     return;
   }
 
-  // Density scales with iteration
   const density = randInt(2, 4 + Math.floor(iteration / 3));
 
   for (let i = 0; i < density; i++) {
     const roll = random();
-
-    // Spawn Logic:
-    // > 0.95 : Module (5%)
-    // > 0.88 : Package (7%)
-    // > 0.400 : Folder
-    // Else    : File
 
     if (roll > 0.95) {
       const file: FileNode = {
@@ -213,7 +189,6 @@ const generateJunkStructure = (
   }
 };
 
-// Deterministic puzzle values so reloads stay stable per run + iteration
 const GHOST_WORDS = ['void', 'nexus', 'sector', 'grid', 'matrix', 'shadow'];
 
 export const ghostWordFor = (runSeed: number): string => {
@@ -226,13 +201,11 @@ export const ghostPasswordFor = (runSeed: number, iteration: number): string => 
   return n.toString(16).toUpperCase().padStart(4, '0');
 };
 
-// Tree Generator
 export const generateFileSystem = (
   iteration: number,
   runSeed: number,
   forceRoot: boolean = false
 ): DirectoryNode => {
-  // Use runSeed combined with iteration to ensure unique runs but deterministic reloading
   setSeed(runSeed + iteration * 1337);
 
   const rootId = 'root';
@@ -252,12 +225,7 @@ export const generateFileSystem = (
   const path: DirectoryNode[] = [root];
 
   if (forceRoot) {
-    // DEV MODE: Ascend.exe at root
-    // We still generate "path" distractors to populate the root, but don't create deep folders for the win condition
-    // Actually, standard distractors are generated *around* the path.
-    // So we just generate distractors at root.
   } else {
-    // Build the "Winning" path
     for (let d = 0; d < targetDepth; d++) {
       const nextDirName = `${randChoice(FOLDER_NAMES)}_${randInt(1, 99)}`;
       const nextDir: DirectoryNode = {
@@ -274,7 +242,6 @@ export const generateFileSystem = (
     }
   }
 
-  // Place ascend.exe
   const ascendFile: FileNode = {
     id: `ascend_exe_${iteration}`,
     name: 'ascend',
@@ -286,20 +253,14 @@ export const generateFileSystem = (
   };
   currentDir.children.push(ascendFile);
 
-  // Puzzle values, placed after distractors so hosts exist off-path
   const ghostWord = ghostWordFor(runSeed);
   const ghostPassword = ghostPasswordFor(runSeed, iteration);
 
-  // Populate Distractors
   path.forEach(node => {
     const siblingCount = randInt(3, 5 + Math.floor(iteration / 2));
 
     for (let i = 0; i < siblingCount; i++) {
       const roll = random();
-
-      // Spawn Logic:
-      // > 0.95 : Module (5%)
-      // > 0.88 : Package (7%)
 
       if (roll > 0.95) {
         const file: FileNode = {
@@ -364,8 +325,6 @@ export const generateFileSystem = (
     node.children.sort(() => random() - 0.5);
   });
 
-  // Puzzle nodes, scattered across off-path folders so the winning path
-  // carries only ascend.exe. Deterministic per seed + iteration.
   const offPath: DirectoryNode[] = [];
   const collectOffPath = (node: DirectoryNode) => {
     if (!node.isWinningPath) offPath.push(node);
@@ -381,13 +340,7 @@ export const generateFileSystem = (
     usedHosts.add(host.id);
     return host;
   };
-  const placeFile = (host: DirectoryNode, file: FileNode) => {
-    file.parentId = host.id;
-    host.children.push(file);
-  };
 
-  // Buried cache, iteration 5 and up. Part 5 names it; the vault inside
-  // holds a minigame pass. Below iteration 5 the vault hides elsewhere.
   let cacheName = '';
   let cache: DirectoryNode | null = null;
   if (iteration >= 5) {
@@ -433,7 +386,6 @@ export const generateFileSystem = (
     special: true,
   });
 
-  // Minigame cabinets: one exe per game, each on its own off-path host
   const exeHosts: string[] = [];
   for (const game of ARCADE_GAMES) {
     const host = pickHost();
@@ -449,15 +401,13 @@ export const generateFileSystem = (
     exeHosts.push(host.name);
   }
 
-  // Archivist trail: one part per iteration, 1-4 only in their iteration,
-  // part 5 (plus cache) in every iteration from 5 on so the gate stays fed.
   if (iteration === 1) {
     root.children.push({
       id: `archivist_1_${iteration}`,
       name: 'archivist_1',
       type: FileType.FILE,
       extension: FileExtension.TXT,
-      content: `// ARCHIVIST TRAIL 1/5\n\nFirst mark, left in the shell I crossed two ferries back. I left four more parts, one per shell above this one.\nThe ghost file sleeps in ${ghostHost.name}. It is the automated broadcast of the operator before me, still transmitting on a dead channel: a password, and the folder where its sealed vault sleeps. Copy the password down, it changes every shell.\nAscend. I stopped marking the ferry path, look elsewhere.`,
+      content: `// ARCHIVIST TRAIL 1/5\n\nFirst mark, left in the shell I crossed two ferries back. I left four more parts, one per shell above this one.\nThe ghost file sleeps in ${ghostHost.name}. It is the automated broadcast of the operator before me, still transmitting on a dead channel: a password, and the folder where its sealed vault sleeps. Copy the password down, it changes every shell.\nAscend.`,
       parentId: root.id,
       isWinningPath: false,
       loreId: 'lore_archivist_1',

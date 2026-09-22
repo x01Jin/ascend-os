@@ -20,7 +20,7 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({ notifications, 
       {notifications.map(n => {
         let icon = <Info size={20} className="text-blue-400" />;
         let borderColor = 'border-blue-500/30';
-        let bgColor = 'bg-blue-900/10'; // Inner glow
+        let bgColor = 'bg-blue-900/10';
 
         switch (n.type) {
           case NotificationType.SUCCESS:
@@ -59,7 +59,6 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({ notifications, 
               e.stopPropagation();
             }}
           >
-            {/* Color Strip */}
             <div
               className={`absolute left-0 top-0 bottom-0 w-1 ${bgColor.replace('/10', '/80').replace('/20', '/80')}`}
             ></div>

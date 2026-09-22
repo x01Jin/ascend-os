@@ -25,7 +25,6 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, items, onClose }) => {
       }
     };
 
-    // Bounds checking to keep menu on screen
     if (menuRef.current) {
       const rect = menuRef.current.getBoundingClientRect();
       if (rect.right > window.innerWidth) {

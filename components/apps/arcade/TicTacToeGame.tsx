@@ -20,10 +20,10 @@ const winner = (b: Board): '' | 'X' | 'O' => {
   return '';
 };
 
-const replyMove = (next: Board): number => {
-  const free = next.map((v, idx) => (v === '' ? idx : -1)).filter(idx => idx !== -1);
-  return free[Math.floor(Math.random() * free.length)];
-};
+const freeCells = (b: Board): number[] =>
+  b.map((v, idx) => (v === '' ? idx : -1)).filter(idx => idx !== -1);
+
+const replyMove = (free: number[]): number => free[Math.floor(Math.random() * free.length)];
 
 const TicTacToeGame: React.FC<{ onWin: () => void }> = ({ onWin }) => {
   const [board, setBoard] = useState<Board>(Array(9).fill(''));
@@ -41,9 +41,9 @@ const TicTacToeGame: React.FC<{ onWin: () => void }> = ({ onWin }) => {
       onWin();
       return;
     }
-    const free = next.map((v, idx) => (v === '' ? idx : -1)).filter(idx => idx !== -1);
+    const free = freeCells(next);
     if (free.length > 0) {
-      next[replyMove(next)] = 'O';
+      next[replyMove(free)] = 'O';
     }
     if (winner(next) === 'O') {
       setBoard(next);

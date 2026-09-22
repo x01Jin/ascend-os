@@ -29,9 +29,7 @@ const WindowFrame: React.FC<WindowFrameProps> = ({
   const isMaximized = !!windowState.isMaximized;
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    // Only allow left click drag
     if (e.button !== 0) return;
-    // Maximized windows fill the viewport so there is nothing to drag
     if (isMaximized) return;
 
     e.stopPropagation();
@@ -66,7 +64,6 @@ const WindowFrame: React.FC<WindowFrameProps> = ({
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDragging) return;
-      // Calculate new position
       const newX = e.clientX - dragOffset.x;
       const newY = e.clientY - dragOffset.y;
       onMove(windowState.id, newX, newY);
@@ -112,12 +109,10 @@ const WindowFrame: React.FC<WindowFrameProps> = ({
       }
       onMouseDown={() => onFocus(windowState.id)}
       onContextMenu={e => {
-        // Prevent desktop context menu from showing through the window
         e.preventDefault();
         e.stopPropagation();
       }}
     >
-      {/* Title Bar - Draggable Area */}
       <div
         className="bg-gray-800 p-2 flex justify-between items-center select-none border-b border-gray-700 cursor-grab active:cursor-grabbing"
         onMouseDown={handleMouseDown}
@@ -161,7 +156,6 @@ const WindowFrame: React.FC<WindowFrameProps> = ({
         </div>
       </div>
 
-      {/* Content Area */}
       <div className="flex-1 min-h-0 overflow-hidden relative bg-gray-950/90 backdrop-blur-sm">
         {children}
       </div>

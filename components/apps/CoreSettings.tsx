@@ -41,8 +41,6 @@ const CoreSettings: React.FC<CoreSettingsProps> = ({
   onImportSave,
 }) => {
   const [seedInput, setSeedInput] = useState(gameState.runSeed.toString());
-  // Adjust state during render when the external seed changes (React-endorsed
-  // derived-state pattern; avoids setState inside an effect).
   const [prevSeed, setPrevSeed] = useState(gameState.runSeed);
   if (gameState.runSeed !== prevSeed) {
     setPrevSeed(gameState.runSeed);
@@ -51,7 +49,6 @@ const CoreSettings: React.FC<CoreSettingsProps> = ({
   const [bgChars, setBgChars] = useState<{ id: number; x: number; y: number; text: string }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Confirmation Dialog State
   const [confirmState, setConfirmState] = useState<{
     isOpen: boolean;
     title: string;
@@ -61,7 +58,6 @@ const CoreSettings: React.FC<CoreSettingsProps> = ({
     confirmLabel?: string;
   }>({ isOpen: false, title: '', message: '', action: () => {}, isDanger: false });
 
-  // Background Glitch Effect
   useEffect(() => {
     const interval = setInterval(() => {
       const id = Date.now();
@@ -139,8 +135,8 @@ const CoreSettings: React.FC<CoreSettingsProps> = ({
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = event => {
-      const result = event.target?.result as string;
+    reader.addEventListener('load', event => {
+      const result = (event.target as FileReader | null)?.result as string;
       const parsed = validateSave(result);
 
       if (parsed) {
@@ -161,9 +157,8 @@ const CoreSettings: React.FC<CoreSettingsProps> = ({
           'Close'
         );
       }
-      // Reset input
       if (fileInputRef.current) fileInputRef.current.value = '';
-    };
+    });
     reader.readAsText(file);
   };
 
@@ -193,7 +188,6 @@ const CoreSettings: React.FC<CoreSettingsProps> = ({
                 }
             `}</style>
 
-      {/* Background Chaos */}
       <div className="absolute inset-0 z-0 pointer-events-none opacity-30">
         {bgChars.map(char => (
           <div
@@ -207,7 +201,6 @@ const CoreSettings: React.FC<CoreSettingsProps> = ({
       </div>
 
       <div className="relative z-10 flex flex-col h-full p-6 space-y-6 glitch-container overflow-y-auto">
-        {/* Header */}
         <div className="border-b-2 border-red-900 pb-2 flex justify-between items-end shrink-0">
           <div>
             <h1 className="text-2xl font-black uppercase tracking-widest text-red-500 drop-shadow-[2px_2px_0_rgba(255,0,0,0.3)]">
@@ -220,14 +213,12 @@ const CoreSettings: React.FC<CoreSettingsProps> = ({
           <Terminal size={24} className="text-red-600 animate-pulse" />
         </div>
 
-        {/* 1. Dev Mode Section */}
         <div className="space-y-4">
           <h2 className="text-sm font-bold bg-red-900/20 px-2 py-1 inline-block border-l-4 border-red-600">
             DEV_OVERRIDES
           </h2>
 
           <div className="grid grid-cols-2 gap-4">
-            {/* Infinite Data */}
             <div
               onClick={onToggleDevMode}
               className={`
@@ -245,7 +236,6 @@ const CoreSettings: React.FC<CoreSettingsProps> = ({
               </div>
             </div>
 
-            {/* Ascend Root */}
             <div
               onClick={onToggleAscendRoot}
               className={`
@@ -265,7 +255,6 @@ const CoreSettings: React.FC<CoreSettingsProps> = ({
           </div>
         </div>
 
-        {/* 2. Save Management Section */}
         <div className="space-y-4">
           <h2 className="text-sm font-bold bg-red-900/20 px-2 py-1 inline-block border-l-4 border-red-600">
             SAVE_MANAGEMENT
@@ -309,7 +298,6 @@ const CoreSettings: React.FC<CoreSettingsProps> = ({
             </div>
           </div>
 
-          {/* Import / Export */}
           <div className="grid grid-cols-2 gap-3">
             <button
               onClick={handleExport}
@@ -335,7 +323,6 @@ const CoreSettings: React.FC<CoreSettingsProps> = ({
           </div>
         </div>
 
-        {/* 3. Universe Seed (Last) */}
         <div className="space-y-4 pb-4">
           <h2 className="text-sm font-bold bg-red-900/20 px-2 py-1 inline-block border-l-4 border-red-600">
             UNIVERSE_SEED

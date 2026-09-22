@@ -11,7 +11,6 @@ import {
   AppNotification,
   NotificationType,
   NodeModification,
-  FileSystemNode,
 } from './types';
 import { generateFileSystem } from './services/generator';
 import {
@@ -23,7 +22,6 @@ import {
   factoryReset,
   SaveMode,
 } from './services/storage';
-import { processDevMode } from './services/devMode';
 import {
   INITIAL_GAME_STATE,
   DESKTOP_GRID,
@@ -64,125 +62,39 @@ import { LORE_FRAGMENTS } from './services/lore';
 import { computeProgress, isZipEarned } from './services/progression';
 import { Terminal } from 'lucide-react';
 
-// Helper to remove already consumed packages/modules from the generated tree
-const filterConsumedNodes = (node: DirectoryNode, consumedIds: string[]): DirectoryNode => {
-  if (consumedIds.length === 0) return node;
+import {
+  ancestorIds,
+  buildSystem,
+  findNodeById,
+  prepareFileSystem,
+  updateNodeRecursively,
+} from './services/filesystem';
 
-  // Filter out children that are in the consumed list
-  const validChildren = node.children.filter(child => !consumedIds.includes(child.id));
-
-  // Recursively filter subfolders
-  const processedChildren = validChildren.map(child => {
-    if (child.type === FileType.FOLDER) {
-      return filterConsumedNodes(child as DirectoryNode, consumedIds);
-    }
-    return child;
-  });
-
-  return { ...node, children: processedChildren };
-};
-
-// Helper to apply persistent modifications (Renames, Marks, Scanned) to the generated tree
-const applyModifications = (
-  node: DirectoryNode,
-  modifications: Record<string, NodeModification>
-): DirectoryNode => {
-  let newNode = { ...node };
-
-  // Apply modification to current node if exists
-  if (modifications[node.id]) {
-    const mods = modifications[node.id];
-    if (mods.name !== undefined) newNode.name = mods.name;
-    if (mods.isMarked !== undefined) newNode.isMarked = mods.isMarked;
-    if (mods.markKind !== undefined) newNode.markKind = mods.markKind;
-    if (mods.isScanned !== undefined) newNode.isScanned = mods.isScanned;
-  }
-
-  // Recurse for children
-  newNode.children = newNode.children.map(child => {
-    if (child.type === FileType.FOLDER) {
-      return applyModifications(child as DirectoryNode, modifications);
-    } else {
-      // Apply mods to files too
-      if (modifications[child.id]) {
-        const mods = modifications[child.id];
-        // Type casting needed because modifications can contain any property, safe here
-        return { ...child, ...mods } as FileNode;
-      }
-      return child;
-    }
-  });
-
-  return newNode;
-};
-
-// Builds fresh game + filesystem state for a save mode. Used for lazy
-// initial state (no mount effect needed) and for mode switches / resets.
-const buildSystem = (mode: SaveMode) => {
-  let loadedState = loadGame(mode);
-
-  if (!loadedState) {
-    loadedState = { ...INITIAL_GAME_STATE };
-    loadedState.runSeed = Date.now();
-  }
-
-  if (!loadedState.shortcuts) {
-    loadedState.shortcuts = INITIAL_GAME_STATE.shortcuts;
-  }
-
-  loadedState = processDevMode(loadedState);
-
-  const rawFS = generateFileSystem(
-    loadedState.currentIteration,
-    loadedState.runSeed,
-    loadedState.isAscendRootEnabled
-  );
-  const filteredFS = filterConsumedNodes(rawFS, loadedState.consumedIds || []);
-  const finalFS = applyModifications(filteredFS, loadedState.modifiedNodes || {});
-
-  return { loadedState, finalFS };
-};
-
-const findNodeById = (node: DirectoryNode, id: string): FileSystemNode | null => {
-  if (node.id === id) return node;
-  for (const child of node.children) {
-    if (child.id === id) return child;
-    if (child.type === FileType.FOLDER) {
-      const found = findNodeById(child as DirectoryNode, id);
-      if (found) return found;
-    }
-  }
-  return null;
+const handleFactoryReset = () => {
+  factoryReset();
+  window.location.reload();
 };
 
 const App: React.FC = () => {
-  // Lazy initial state loads the save during the first render, so no
-  // mount effect (and its setState calls) is needed.
   const [initialSystem] = useState(() => {
     const mode = getSaveMode();
     return { mode, ...buildSystem(mode) };
   });
-  // Game State
   const [saveMode, setSaveModeState] = useState<SaveMode>(initialSystem.mode);
   const [gameState, setGameState] = useState<GameState>(initialSystem.loadedState);
   const [fileSystem, setFileSystem] = useState<DirectoryNode | null>(initialSystem.finalFS);
 
-  // System Phases
   const [isBooting, setIsBooting] = useState(true);
   const [isAscending, setIsAscending] = useState(false);
 
-  // Window Manager State
   const [windows, setWindows] = useState<WindowState[]>([]);
   const [activeWindowId, setActiveWindowId] = useState<string | null>(null);
   const [nextZIndex, setNextZIndex] = useState(100);
   const [cascadeCount, setCascadeCount] = useState(0);
-  // Reset the cascade offset once all windows are closed (render-phase
-  // adjustment instead of setState in an effect).
   if (windows.length === 0 && cascadeCount > 0) {
     setCascadeCount(0);
   }
 
-  // Context Menu State
   const [contextMenu, setContextMenu] = useState<{
     isOpen: boolean;
     x: number;
@@ -190,14 +102,11 @@ const App: React.FC = () => {
     items: ContextMenuItem[];
   }>({ isOpen: false, x: 0, y: 0, items: [] });
 
-  // Notifications
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
 
-  // Dismissing a progression modal persists its seen flag (event handlers).
   const dismissZipReward = () => setGameState(prev => ({ ...prev, secretsZipSeen: true }));
   const dismissThankYou = () => setGameState(prev => ({ ...prev, hasSeenThankYou: true }));
 
-  // Update Loop for Timers (Boost Consumption)
   useEffect(() => {
     const tickRate = 100;
     const timer = setInterval(() => {
@@ -224,13 +133,11 @@ const App: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // --- Auto Miner Loop & Infinite Data Check ---
   useEffect(() => {
     const intervalId = setInterval(() => {
       setGameState(prev => {
         let newState = { ...prev };
 
-        // Apply Auto Miner if powered
         if (prev.autoMinerData > 0) {
           newState.dataKB = prev.dataKB + prev.autoMinerData;
           const minedTotal = prev.stats.totalMinedKB + prev.autoMinerData;
@@ -238,7 +145,6 @@ const App: React.FC = () => {
             ...prev.stats,
             totalMinedKB: minedTotal,
           };
-          // Mining total achievements (checked here so auto-miner progress counts)
           const earned: Record<string, number> = {};
           if (minedTotal >= 10240 && prev.achievements['ten_mb'] === undefined) {
             earned['ten_mb'] = Date.now();
@@ -251,7 +157,6 @@ const App: React.FC = () => {
           }
         }
 
-        // Apply Dev Mode Infinite Data
         if (prev.isDevModeEnabled && newState.dataKB < 999999999) {
           newState.dataKB = 999999999999;
         }
@@ -261,9 +166,8 @@ const App: React.FC = () => {
     }, gameState.autoMinerInterval);
 
     return () => clearInterval(intervalId);
-  }, [gameState.autoMinerData, gameState.autoMinerInterval, gameState.isDevModeEnabled]);
+  }, [gameState.autoMinerInterval]);
 
-  // --- Initialization ---
   const initializeSystem = useCallback((mode: SaveMode) => {
     const { loadedState, finalFS } = buildSystem(mode);
     setGameState(loadedState);
@@ -271,14 +175,12 @@ const App: React.FC = () => {
     setFileSystem(finalFS);
   }, []);
 
-  // Save on change
   useEffect(() => {
     if (!isBooting && !isAscending) {
       saveGame(gameState, saveMode);
     }
   }, [gameState, isBooting, isAscending, saveMode]);
 
-  // --- Notification Manager ---
   const addNotification = useCallback((title: string, message: string, type: NotificationType) => {
     const id = Date.now().toString() + Math.random();
     setNotifications(prev => [...prev, { id, title, message, type }]);
@@ -292,7 +194,6 @@ const App: React.FC = () => {
     setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
-  // --- Progression helpers ---
   const unlockAchievement = useCallback((id: string) => {
     setGameState(prev => {
       if (prev.achievements[id] !== undefined) return prev;
@@ -340,12 +241,9 @@ const App: React.FC = () => {
   );
   const zipEarned = isZipEarned(gameState.achievements, ACH_FOR_ZIP);
 
-  // Progression modals are derived during render instead of driven by
-  // watcher effects (avoids setState inside effects).
   const showZipReward = zipEarned && !gameState.secretsZipSeen && !isBooting;
   const showThankYou = progress >= 100 && !gameState.hasSeenThankYou && !isBooting;
 
-  // --- Context Menu Handler ---
   const handleContextMenu = useCallback((x: number, y: number, items: ContextMenuItem[]) => {
     setContextMenu({ isOpen: true, x, y, items });
   }, []);
@@ -370,48 +268,8 @@ const App: React.FC = () => {
     ]);
   };
 
-  // --- File System Management ---
-
-  const updateNodeRecursively = (
-    node: DirectoryNode,
-    targetId: string,
-    updates: Partial<FileNode | DirectoryNode> | null
-  ): DirectoryNode => {
-    if (node.id === targetId && updates) {
-      return { ...node, ...updates } as DirectoryNode;
-    }
-
-    if (node.children.some(c => c.id === targetId && updates === null)) {
-      return {
-        ...node,
-        children: node.children.filter(c => c.id !== targetId),
-      };
-    }
-
-    const newChildren = node.children.map(child => {
-      if (child.id === targetId && updates) {
-        return { ...child, ...updates } as any;
-      }
-      if (child.type === FileType.FOLDER) {
-        return updateNodeRecursively(child as DirectoryNode, targetId, updates);
-      }
-      return child;
-    });
-
-    return { ...node, children: newChildren };
-  };
-
-  // Walk parents of the found ferry and mark the whole route gate-purple.
-  // The ferry file itself is included so the leaf interior shows the mark.
-  // Single pass: the old per-id loop recomputed from one stale snapshot
-  // and only the last write survived until reload.
   const revealGatePath = (fileId: string, tree: DirectoryNode) => {
-    const ids = new Set<string>([fileId]);
-    let current = findNodeById(tree, fileId);
-    while (current?.parentId) {
-      ids.add(current.parentId);
-      current = findNodeById(tree, current.parentId);
-    }
+    const ids = ancestorIds(tree, fileId);
     const gateMark = { isMarked: true, markKind: 'gate' } as const;
     const markAll = (node: DirectoryNode): DirectoryNode => ({
       ...node,
@@ -448,17 +306,7 @@ const App: React.FC = () => {
     setFileSystem(newFileSystem);
 
     if (updates.isScanned) {
-      const scanned = (function find(n: DirectoryNode): FileSystemNode | null {
-        if (n.id === id) return n;
-        for (const c of n.children) {
-          if (c.id === id) return c;
-          if (c.type === FileType.FOLDER) {
-            const f = find(c as DirectoryNode);
-            if (f) return f;
-          }
-        }
-        return null;
-      })(newFileSystem);
+      const scanned = findNodeById(newFileSystem, id);
       if (scanned?.isWinningPath && scanned.type !== FileType.FOLDER) {
         revealGatePath(id, newFileSystem);
       }
@@ -466,7 +314,7 @@ const App: React.FC = () => {
 
     setGameState(prev => {
       const currentMods = prev.modifiedNodes?.[id] || {};
-      const relevantUpdates: any = {};
+      const relevantUpdates: NodeModification = {};
       if (updates.name !== undefined) relevantUpdates.name = updates.name;
       if (updates.isMarked !== undefined) relevantUpdates.isMarked = updates.isMarked;
       if (updates.markKind !== undefined) relevantUpdates.markKind = updates.markKind;
@@ -490,11 +338,8 @@ const App: React.FC = () => {
     setFileSystem(newFileSystem);
   };
 
-  // --- Window Management ---
-
   const openWindow = useCallback(
-    (appId: AppId, data?: any) => {
-      // Only a subset of apps should be single-instance (do not open duplicates)
+    (appId: AppId, data?: unknown) => {
       const singleInstanceApps = new Set<AppId>([
         AppId.CORE_SETTINGS,
         AppId.HELP,
@@ -522,7 +367,7 @@ const App: React.FC = () => {
           title = 'File Explorer';
           break;
         case AppId.TEXT_VIEWER:
-          title = data?.name || 'Text Viewer';
+          title = (data as FileNode | undefined)?.name || 'Text Viewer';
           break;
         case AppId.CLICKER:
           title = 'Data Miner';
@@ -635,8 +480,6 @@ const App: React.FC = () => {
     setCascadeCount(0);
   };
 
-  // --- Desktop Shortcuts ---
-
   const handleMoveShortcut = (id: string, gridX: number, gridY: number) => {
     setGameState(prev => {
       const isOccupied = prev.shortcuts.some(
@@ -711,8 +554,6 @@ const App: React.FC = () => {
     });
   };
 
-  // --- Game Logic ---
-
   const [teleportTarget, setTeleportTarget] = useState<{ dirId: string; nonce: number } | null>(
     null
   );
@@ -722,7 +563,6 @@ const App: React.FC = () => {
     openWindow(AppId.EXPLORER);
   };
 
-  // Unlockable tools: map (iter 2+, 100 MB), radar (iter 3+, 250 MB)
   const handleUnlockTool = (tool: string) => {
     const cost = tool === 'radar' ? RADAR_UNLOCK_COST : MAP_UNLOCK_COST;
     const minIter = tool === 'radar' ? 3 : 2;
@@ -835,20 +675,14 @@ const App: React.FC = () => {
     );
   };
 
-  // --- CORE SETTINGS & SAVE HANDLING ---
-
   const rebootSystem = (targetMode: SaveMode, options?: { skipSave?: boolean }) => {
-    // Optionally skip saving current state (useful for session reset)
     if (!options?.skipSave) {
-      // Save Current State before switching
       saveGame(gameState, saveMode);
     }
 
-    // Switch Mode
     setSaveMode(targetMode);
     setSaveModeState(targetMode);
 
-    // Initialize New State
     setWindows([]);
     setCascadeCount(0);
     setIsBooting(true);
@@ -856,29 +690,23 @@ const App: React.FC = () => {
   };
 
   const handleUpdateSeed = (newSeed: number) => {
-    // "Reset everything beyond factory" -> Wipe all storage
     factoryReset();
 
-    // Re-initialize with new seed but default everything else (NORMAL mode behavior)
     const newState: GameState = {
       ...INITIAL_GAME_STATE,
       runSeed: newSeed,
     };
 
-    // Force Normal Mode since we wiped Dev state
     setSaveMode('NORMAL');
     setSaveModeState('NORMAL');
 
     setGameState(newState);
 
-    // Regenerate standard FS (Root false)
     const rawFS = generateFileSystem(newState.currentIteration, newSeed, false);
     setFileSystem(rawFS);
 
-    // Save immediately to NORMAL slot
     saveGame(newState, 'NORMAL');
 
-    // Trigger Reboot
     setWindows([]);
     setCascadeCount(0);
     setIsBooting(true);
@@ -887,29 +715,27 @@ const App: React.FC = () => {
   const handleImportSave = (importedState: GameState) => {
     const targetMode = importedState.isDevModeEnabled ? 'DEV' : 'NORMAL';
 
-    // Save imported state to disk immediately
     saveGame(importedState, targetMode);
 
-    // Force switch to target mode if different
     if (saveMode !== targetMode) {
       setSaveMode(targetMode);
       setSaveModeState(targetMode);
     }
 
-    // Load state into memory
     setGameState(importedState);
 
-    // Regenerate world
     const rawFS = generateFileSystem(
       importedState.currentIteration,
       importedState.runSeed,
       importedState.isAscendRootEnabled
     );
-    const filteredFS = filterConsumedNodes(rawFS, importedState.consumedIds || []);
-    const finalFS = applyModifications(filteredFS, importedState.modifiedNodes || {});
+    const finalFS = prepareFileSystem(
+      rawFS,
+      importedState.consumedIds || [],
+      importedState.modifiedNodes || {}
+    );
     setFileSystem(finalFS);
 
-    // Reboot
     setWindows([]);
     setCascadeCount(0);
     setIsBooting(true);
@@ -963,8 +789,7 @@ const App: React.FC = () => {
         }
 
         const rawFS = generateFileSystem(prev.currentIteration, prev.runSeed, next);
-        const filteredFS = filterConsumedNodes(rawFS, prev.consumedIds || []);
-        const finalFS = applyModifications(filteredFS, prev.modifiedNodes || {});
+        const finalFS = prepareFileSystem(rawFS, prev.consumedIds || [], prev.modifiedNodes || {});
         setFileSystem(finalFS);
 
         return { ...prev, isAscendRootEnabled: next };
@@ -978,16 +803,9 @@ const App: React.FC = () => {
     addNotification('SESSION RESET', 'Local state cleared.', NotificationType.WARNING);
   };
 
-  const handleFactoryReset = () => {
-    factoryReset();
-    window.location.reload();
-  };
-
   const handleSwitchToNormal = () => {
     rebootSystem('NORMAL');
   };
-
-  // ---
 
   const handleAscendStart = () => {
     if (!getGateStatus(gameState).complete) return;
@@ -996,7 +814,6 @@ const App: React.FC = () => {
     setIsAscending(true);
   };
 
-  // Ferry fuel: paid once per iteration, stays paid if the dialog reopens
   const handlePayFuel = () => {
     const fee = fuelFeeKB(gameState.currentIteration);
     if (gameState.fuelPaidIter === gameState.currentIteration || gameState.dataKB < fee) return;
@@ -1024,9 +841,9 @@ const App: React.FC = () => {
         ...prev,
         currentIteration: nextIteration,
         highScore: newScore,
-        activeBoostMultiplier: null, // Reset active boost on ascend
-        consumedIds: [], // Reset consumed list for new iteration
-        modifiedNodes: {}, // Reset modifications for new iteration
+        activeBoostMultiplier: null,
+        consumedIds: [],
+        modifiedNodes: {},
         stats: { ...prev.stats, ascensions: prev.stats.ascensions + 1 },
       };
 
@@ -1042,7 +859,6 @@ const App: React.FC = () => {
 
   const handleBootComplete = useCallback(() => {
     setIsBooting(false);
-    // Cold boot achievement + opening lore, granted by the boot event itself.
     unlockAchievement('cold_boot');
     seeLore('lore_boot');
   }, [unlockAchievement, seeLore]);
@@ -1059,7 +875,7 @@ const App: React.FC = () => {
 
       if (type === 'AUTOMINER_SPEED' && gameState.autoMinerInterval <= AUTOMINER_MIN_INTERVAL) {
         effectiveType = 'AUTOMINER_POWER';
-        effectiveValue = Math.floor(Math.random() * 3) + 1; // 1-3
+        effectiveValue = Math.floor(Math.random() * 3) + 1;
       }
 
       setGameState(prev => {
@@ -1148,12 +964,10 @@ const App: React.FC = () => {
     }
   };
 
-  // File was read inside TextViewer (covers archivist parts, ghost)
   const handleReadFile = (file: FileNode) => {
     if (file.loreId) seeLore(file.loreId);
   };
 
-  // Locked cache solved with ghost password
   const handleUnlockedFile = (file: FileNode) => {
     if (file.secretId) {
       discoverSecret(file.secretId);
@@ -1165,10 +979,8 @@ const App: React.FC = () => {
     }
     if (file.loreId) seeLore(file.loreId);
     setWindows(prev =>
-      prev.filter(w => !(w.appId === AppId.TEXT_VIEWER && w.data?.id === file.id))
+      prev.filter(w => !(w.appId === AppId.TEXT_VIEWER && (w.data as FileNode)?.id === file.id))
     );
-    // Zip vault lives in the generator worker (no vault file there yet),
-    // so match both naming forms to stay compatible either way
     const isVault = file.name.endsWith('.zip') || file.id.startsWith('vault_');
     if (isVault) {
       setGameState(prev => ({ ...prev, passes: prev.passes + 1 }));
@@ -1182,7 +994,6 @@ const App: React.FC = () => {
     );
   };
 
-  // Archivist cache folder entered: grants trail only if parts read in order
   const handleNavigateDir = (dir: DirectoryNode) => {
     if (!dir.id.startsWith('cache_')) return;
     const seen = gameState.loreSeen;
@@ -1234,7 +1045,6 @@ const App: React.FC = () => {
     openWindow(AppId.CORE_SETTINGS);
   };
 
-  // Cracked egg: random 10-50 MB data payout, counts as the idol egg
   const handleEggCrack = (rewardKB: number) => {
     setGameState(prev => ({ ...prev, dataKB: prev.dataKB + rewardKB }));
     const isNew = discoverSecret('idol');
@@ -1243,7 +1053,6 @@ const App: React.FC = () => {
     checkEggHunter();
   };
 
-  // Minigame win recorded per iteration; feeds the ascension gate
   const handleArcadeWin = (gameId: string) => {
     const iter = gameState.currentIteration;
     if (gameState.arcadeWins[gameId] === iter) return;
@@ -1263,7 +1072,6 @@ const App: React.FC = () => {
     );
   };
 
-  // Minigame pass spent from a per-game window; records the win through the normal path
   const handleRedeemPass = (gameId: string) => {
     if (gameState.passes < 1) return;
     if (gameState.arcadeWins[gameId] === gameState.currentIteration) return;
@@ -1284,16 +1092,10 @@ const App: React.FC = () => {
     const summary = `ASCEND OS 100% — iteration ${gameState.currentIteration}, ${Object.keys(gameState.achievements).length} tasks, ${gameState.secretsFound.length} secrets, seed ${gameState.runSeed}`;
     try {
       const pending = navigator.clipboard?.writeText(summary);
-      pending?.catch(() => {
-        // clipboard denied, summary stays on screen
-      });
-    } catch {
-      // clipboard unavailable, summary stays on screen
-    }
+      pending?.catch(() => {});
+    } catch {}
     addNotification('COPIED', summary, NotificationType.SUCCESS);
   };
-
-  // --- Render Phases ---
 
   if (isAscending) {
     return (
@@ -1323,7 +1125,6 @@ const App: React.FC = () => {
       }
       onContextMenu={handleDesktopContextMenu}
     >
-      {/* HUD Elements: Title & Iteration (Always visible, Top Right) */}
       <div className="absolute top-10 right-10 text-right opacity-30 select-none pointer-events-none z-0">
         <h1 className="text-6xl font-black tracking-tighter text-white drop-shadow-lg">ASCEND</h1>
         <p className="text-xl font-mono mt-2 text-white drop-shadow-md">
@@ -1334,7 +1135,6 @@ const App: React.FC = () => {
         )}
       </div>
 
-      {/* Default Wallpaper Elements (Center Logo, decorative only) */}
       {!gameState.wallpaper && (
         <div
           title="Terminal"
@@ -1344,7 +1144,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Desktop Icons */}
       <div className="absolute inset-0 z-0">
         {(gameState.shortcuts || []).map(sc => (
           <DesktopIcon
@@ -1357,7 +1156,6 @@ const App: React.FC = () => {
         ))}
       </div>
 
-      {/* Windows Layer */}
       {windows.map(win => (
         <WindowFrame
           key={win.id}
@@ -1390,7 +1188,11 @@ const App: React.FC = () => {
             />
           )}
           {win.appId === AppId.TEXT_VIEWER && (
-            <TextViewer file={win.data} onUnlocked={handleUnlockedFile} onRead={handleReadFile} />
+            <TextViewer
+              file={win.data as FileNode}
+              onUnlocked={handleUnlockedFile}
+              onRead={handleReadFile}
+            />
           )}
           {win.appId === AppId.EGG && (
             <EggHunt
@@ -1400,7 +1202,7 @@ const App: React.FC = () => {
           )}
           {win.appId === AppId.ARCADE && (
             <Arcade
-              gameId={win.data?.gameId ?? 'pong'}
+              gameId={(win.data as { gameId?: string })?.gameId ?? 'pong'}
               arcadeWins={gameState.arcadeWins}
               currentIteration={gameState.currentIteration}
               passes={gameState.passes}
@@ -1487,7 +1289,6 @@ const App: React.FC = () => {
         progress={progress}
       />
 
-      {/* Global Context Menu */}
       {contextMenu.isOpen && (
         <ContextMenu
           x={contextMenu.x}
@@ -1497,10 +1298,8 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* Notification Layer */}
       <NotificationSystem notifications={notifications} onDismiss={dismissNotification} />
 
-      {/* secrets.zip reward popup */}
       {showZipReward && (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/70">
           <div className="max-w-md w-full bg-gray-900 border border-purple-500/50 rounded-lg p-6 font-mono text-center shadow-[0_0_60px_rgba(168,85,247,0.35)]">
@@ -1531,7 +1330,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Thank-you letter at 100% */}
       {showThankYou && (
         <ThankYouLetter
           gameState={gameState}
@@ -1540,7 +1338,6 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* Scanline Overlay */}
       <div className="scanline"></div>
     </div>
   );

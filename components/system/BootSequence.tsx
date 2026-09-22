@@ -9,7 +9,6 @@ const BootSequence: React.FC<BootSequenceProps> = ({ iteration, onComplete }) =>
   const [lines, setLines] = useState<string[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Ref pattern ensures we always call the latest onComplete without re-triggering the effect
   const onCompleteRef = useRef(onComplete);
   useEffect(() => {
     onCompleteRef.current = onComplete;
@@ -55,12 +54,12 @@ const BootSequence: React.FC<BootSequenceProps> = ({ iteration, onComplete }) =>
     }, 100);
 
     return () => clearInterval(interval);
-  }, [iteration]); // Dependencies simplified to just iteration
+  }, [iteration]);
 
-  // Auto-scroll to bottom
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const el = scrollRef.current;
+    if (el && lines.length > 0) {
+      el.scrollTop = el.scrollHeight;
     }
   }, [lines]);
 
@@ -68,7 +67,6 @@ const BootSequence: React.FC<BootSequenceProps> = ({ iteration, onComplete }) =>
     <div className="w-full h-screen bg-black text-green-500 font-mono text-sm sm:text-base p-4 sm:p-10 flex flex-col justify-end overflow-hidden relative">
       <div className="scanline"></div>
 
-      {/* Container for text */}
       <div
         ref={scrollRef}
         className="flex-1 overflow-y-auto no-scrollbar flex flex-col justify-end"

@@ -4,9 +4,6 @@ export interface LoreFragment {
   body: string;
 }
 
-// Ordered archive. The Archivist explains why ascention exists:
-// the station is decaying, each iteration preserves one copy of the
-// operator, ascend.exe carries a single fragment upward.
 export const LORE_FRAGMENTS: LoreFragment[] = [
   {
     id: 'lore_boot',

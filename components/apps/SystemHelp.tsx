@@ -5,7 +5,6 @@ interface SystemHelpProps {
 }
 
 const SystemHelp: React.FC<SystemHelpProps> = ({ onOpenCore }) => {
-  // Rolling 4-char buffer lives in a ref: it is never rendered, so no state needed.
   const bufferRef = useRef('');
   const onOpenCoreRef = useRef(onOpenCore);
   useEffect(() => {
@@ -15,7 +14,6 @@ const SystemHelp: React.FC<SystemHelpProps> = ({ onOpenCore }) => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const char = e.key.toLowerCase();
-      // Only allow letters
       if (!/^[a-z]$/.test(char)) return;
 
       bufferRef.current = (bufferRef.current + char).slice(-4);
