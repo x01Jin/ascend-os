@@ -39,14 +39,14 @@ export const getGateStatus = (state: GameState): { items: GateItem[]; complete: 
       const game = MINIGAMES.find(g => g.id === id);
       return {
         id: `minigame_${id}`,
-        label: `Beat ${game?.title ?? id} this iteration`,
+        label: `Beat ${game?.title ?? id} on this layer`,
         done: state.arcadeWins[id] === state.currentIteration,
         minigameId: id,
       };
     }),
     {
       id: 'fuel',
-      label: `Pay ${25 * state.currentIteration} MB ferry fuel`,
+      label: `Pay ${25 * state.currentIteration} MB handoff fuel`,
       done: state.fuelPaidIter === state.currentIteration,
     },
   ];

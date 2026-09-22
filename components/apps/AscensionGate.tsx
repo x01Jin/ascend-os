@@ -56,7 +56,7 @@ const AscensionGate: React.FC<AscensionGateProps> = ({
       name: `${gameId}_location`,
       type: FileType.FILE,
       extension: FileExtension.TXT,
-      content: `// ${(meta?.title ?? gameId).toUpperCase()} TERMINAL - ITERATION ${iteration}\n\n> DIRECTORY: ${dirId}\n> Teleport an explorer straight there.`,
+      content: `// ${(meta?.title ?? gameId).toUpperCase()} TERMINAL - LAYER ${iteration}\n\n> DIRECTORY: ${dirId}\n> Teleport an explorer straight there.`,
       parentId: null,
       isWinningPath: false,
     });
@@ -67,7 +67,7 @@ const AscensionGate: React.FC<AscensionGateProps> = ({
       <AlertTriangle className="w-12 h-12 text-red-500 mb-2 animate-pulse" />
       <h2 className="text-2xl font-bold text-red-500 mb-1 tracking-wider">SYSTEM WARNING</h2>
       <p className="text-red-200/70 font-mono text-xs mb-3">
-        EXECUTING RESETS LOCAL DIRECTORY STRUCTURE. THE FERRY RUNS ON REQUIREMENTS.
+        EXECUTING RESETS LOCAL DIRECTORY STRUCTURE. THE HANDOFF RUNS ON REQUIREMENTS.
       </p>
       <div className="w-full max-w-md flex-1 min-h-0 overflow-y-auto text-left font-mono text-sm mb-3 space-y-2 py-1">
         {items.map(item => {

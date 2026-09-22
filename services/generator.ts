@@ -8,14 +8,16 @@ import {
 } from '../types';
 import { MINIGAMES } from './gate';
 
-let seedCounter = 1;
+let rngState = 1;
 const random = () => {
-  const x = Math.sin(seedCounter++) * 10000;
-  return x - Math.floor(x);
+  rngState = (rngState + 0x6d2b79f5) | 0;
+  let t = Math.imul(rngState ^ (rngState >>> 15), 1 | rngState);
+  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 };
 
 const setSeed = (s: number) => {
-  seedCounter = s;
+  rngState = s | 0;
 };
 
 const randInt = (min: number, max: number) => Math.floor(random() * (max - min + 1)) + min;
@@ -41,43 +43,20 @@ const FOLDER_NAMES = [
   'Kernel',
   'Boot',
   'Recovery',
-  'Shadow',
-  'Nexus',
-  'Void',
-  'Sector',
-  'Grid',
-  'Matrix',
   'Root',
 ];
 
+const MODULE_CONTENT = 'sealed hardware module. install feeds the auto-miner.';
+
 const FILE_PREFIXES = ['sys', 'log', 'err', 'data', 'dump', 'net', 'cfg', 'run', 'batch', 'proc'];
 const FILE_SUFFIXES = ['_bak', '_old', '_v1', '_final', '_tmp', '_01', '_hex'];
-
-const LORE_FRAGMENTS = [
-  'The system is expanding.',
-  'Iteration cycles are stabilizing.',
-  "Don't look too deep into the void.",
-  'Memory leak detected in sector 7.',
-  'The user is watching.',
-  'Packet loss at 99%.',
-  'Ascension is the only way out.',
-  'Recompiling reality...',
-  'Error: Success.',
-  'Null pointer exception in soul.exe.',
-];
 
 const generateFileName = () => {
   return `${randChoice(FILE_PREFIXES)}${random() > 0.5 ? randChoice(FILE_SUFFIXES) : ''}_${randInt(100, 999)}`;
 };
 
-const generateFileContent = (iteration: number) => {
-  const lines = randInt(2, 5);
-  let content = `// FILE DUMP - ITERATION ${iteration}\n\n`;
-  for (let i = 0; i < lines; i++) {
-    content += `> ${randChoice(LORE_FRAGMENTS)}\n`;
-    content += `> [HEX: ${randInt(100000, 999999)}]\n`;
-  }
-  return content;
+const generateFileContent = (parentId: string, _iteration: number) => {
+  return `[MANIFEST LOG-03] 03:13 COPY CHECKSUM OK. 03:14 COPY MISMATCH. ${parentId} SEALED 03:12.`;
 };
 
 const generatePackageContent = (): PackageContent => {
@@ -93,6 +72,11 @@ const generatePackageContent = (): PackageContent => {
     const mb = randInt(8, 14);
     return { type: 'DATA', value: mb * 1024 };
   }
+};
+
+const supplyLabel = (name: string, iteration: number) => {
+  const layer = String(Math.max(1, iteration - 1)).padStart(2, '0');
+  return `[SUPPLY OPR-04] ${name} from layer ${layer} unpack. seal torn 2038-01-20. contents listed inside.`;
 };
 
 const generateModuleContent = (): PackageContent => {
@@ -122,9 +106,10 @@ const generateJunkStructure = (
         name: fname,
         type: FileType.FILE,
         extension: FileExtension.TXT,
-        content: generateFileContent(iteration),
+        content: generateFileContent(parent.id, iteration),
         parentId: parent.id,
         isWinningPath: false,
+        loreId: 'lore_manifest',
       };
       parent.children.push(file);
     }
@@ -142,7 +127,7 @@ const generateJunkStructure = (
         name: `hw_mod_${randInt(100, 999)}`,
         type: FileType.MODULE,
         extension: FileExtension.MOD,
-        content: 'ENCRYPTED HARDWARE MODULE',
+        content: MODULE_CONTENT,
         packageContent: generateModuleContent(),
         parentId: parent.id,
         isWinningPath: false,
@@ -152,12 +137,13 @@ const generateJunkStructure = (
     }
 
     if (roll > 0.82) {
+      const supplyName = `supply_${randInt(100, 999)}`;
       const file: FileNode = {
         id: `pkg_${parent.id}_${i}`,
-        name: `supply_${randInt(100, 999)}`,
+        name: supplyName,
         type: FileType.PACKAGE,
         extension: FileExtension.PKG,
-        content: 'ENCRYPTED SUPPLY DROP',
+        content: supplyLabel(supplyName, iteration),
         packageContent: generatePackageContent(),
         parentId: parent.id,
         isWinningPath: false,
@@ -187,26 +173,34 @@ const generateJunkStructure = (
         name: fname,
         type: FileType.FILE,
         extension: FileExtension.TXT,
-        content: generateFileContent(iteration),
+        content: generateFileContent(parent.id, iteration),
         parentId: parent.id,
         isWinningPath: false,
+        loreId: 'lore_manifest',
       };
       parent.children.push(file);
     }
   }
 };
 
-const GHOST_WORDS = ['void', 'nexus', 'sector', 'grid', 'matrix', 'shadow'];
+const GHOST_WORDS_BY_LAYER: Record<number, string[]> = {
+  1: ['vane-02'],
+  2: ['vane-02', 'okafor-02'],
+  3: ['ibarra-03', 'pell-03'],
+  4: ['layer-04', 'orphan-04'],
+  5: ['handoff-05', 'archive-05'],
+};
+const GHOST_WORDS_DEEP = ['node-06', 'carry-06'];
 
-export const ghostWordFor = (runSeed: number): string => {
-  const idx = Math.abs(Math.floor(runSeed)) % GHOST_WORDS.length;
-  return GHOST_WORDS[idx];
+export const ghostWordFor = (runSeed: number, iteration: number): string => {
+  const layer = Math.max(1, Math.floor(iteration));
+  const pool = layer >= 6 ? GHOST_WORDS_DEEP : GHOST_WORDS_BY_LAYER[layer];
+  const names = pool ?? GHOST_WORDS_DEEP;
+  return names[Math.abs(Math.floor(runSeed)) % names.length];
 };
 
-export const ghostPasswordFor = (runSeed: number, iteration: number): string => {
-  const n = (Math.abs(Math.floor(runSeed)) + iteration * 137) % 65535;
-  return n.toString(16).toUpperCase().padStart(4, '0');
-};
+export const ghostPasswordFor = (_runSeed: number, iteration: number): string =>
+  `/holds/${String(iteration + 1).padStart(2, '0')}/README`;
 
 export const generateFileSystem = (
   iteration: number,
@@ -259,7 +253,7 @@ export const generateFileSystem = (
   };
   currentDir.children.push(ascendFile);
 
-  const ghostWord = ghostWordFor(runSeed);
+  const ghostWord = ghostWordFor(runSeed, iteration);
   const ghostPassword = ghostPasswordFor(runSeed, iteration);
 
   path.forEach(node => {
@@ -274,7 +268,7 @@ export const generateFileSystem = (
           name: `hw_mod_${randInt(100, 999)}`,
           type: FileType.MODULE,
           extension: FileExtension.MOD,
-          content: 'ENCRYPTED HARDWARE MODULE',
+          content: MODULE_CONTENT,
           packageContent: generateModuleContent(),
           parentId: node.id,
           isWinningPath: false,
@@ -284,12 +278,13 @@ export const generateFileSystem = (
       }
 
       if (roll > 0.82) {
+        const supplyName = `supply_${randInt(100, 999)}`;
         const file: FileNode = {
           id: `pkg_root_${node.id}_${i}`,
-          name: `supply_${randInt(100, 999)}`,
+          name: supplyName,
           type: FileType.PACKAGE,
           extension: FileExtension.PKG,
-          content: 'ENCRYPTED SUPPLY DROP',
+          content: supplyLabel(supplyName, iteration),
           packageContent: generatePackageContent(),
           parentId: node.id,
           isWinningPath: false,
@@ -320,15 +315,19 @@ export const generateFileSystem = (
           name: fname,
           type: FileType.FILE,
           extension: FileExtension.TXT,
-          content: generateFileContent(iteration),
+          content: generateFileContent(node.id, iteration),
           parentId: node.id,
           isWinningPath: false,
+          loreId: 'lore_manifest',
         };
         node.children.push(junkFile);
       }
     }
 
-    node.children.sort(() => random() - 0.5);
+    for (let i = node.children.length - 1; i > 0; i--) {
+      const j = Math.floor(random() * (i + 1));
+      [node.children[i], node.children[j]] = [node.children[j], node.children[i]];
+    }
   });
 
   const offPath: DirectoryNode[] = [];
@@ -364,35 +363,46 @@ export const generateFileSystem = (
   }
 
   const vaultHost = cache ?? pickHost();
-  const vaultParentId = vaultHost.id;
   const ghostHost = pickHost();
   placeFile(ghostHost, {
     id: `ghost_${iteration}`,
     name: `ghost_${ghostWord}`,
     type: FileType.FILE,
     extension: FileExtension.TXT,
-    content: `// GHOST FREQUENCY - ITERATION ${iteration}\n\n> static ... signal found ...\n> PASSWORD: ${ghostPassword}\n> CACHE SLEEPS IN ${vaultParentId}\n> A locked vault in that folder listens for the password.\n> [ARCHIVIST NOTE: write it down, it changes per iteration]`,
+    content: `[GHOST OPR-09] margin: password reads ${ghostPassword}. seen after hold_${iteration} opens. ghost ${ghostWord}.`,
     parentId: ghostHost.id,
     isWinningPath: false,
     loreId: 'lore_ghost',
     special: true,
   });
 
+  const layerPad = String(Math.max(1, iteration)).padStart(2, '0');
+  const vaultLines = [
+    `[HOLD VLT-07] Nothing in this node is load-bearing. I checked twice. M.I. layer ${layerPad}.`,
+    `[HOLD VLT-12] nothing load-bearing. checked twice. checked again because I didn't believe it.`,
+  ];
+  if (iteration === 3) {
+    vaultLines.unshift(
+      '[HOLD VLT-05] hold_3 sealed 03:10:00 UTC 2038-01-19. checked twice. M.I. layer 03.'
+    );
+  }
   placeFile(vaultHost, {
     id: `vault_${iteration}`,
-    name: 'dead_drop',
+    name: 'hold',
     type: FileType.FILE,
     extension: FileExtension.ZIP,
-    content: 'LOCKED. The ghost password opens more than one door. A minigame pass is inside.',
+    content: vaultLines.join('\n'),
     parentId: vaultHost.id,
     isWinningPath: false,
     password: ghostPassword,
     secretId: 'ghost',
-    loreId: 'lore_ghost',
+    loreId: 'lore_hold_seal',
+    loreExtra: iteration === 3 ? ['lore_hold_recheck', 'lore_hold3'] : ['lore_hold_recheck'],
     special: true,
   });
 
   const exeHosts: string[] = [];
+  const exeHostNodes: DirectoryNode[] = [];
   for (const game of MINIGAMES) {
     const host = pickHost();
     placeFile(host, {
@@ -405,7 +415,47 @@ export const generateFileSystem = (
       isWinningPath: false,
     });
     exeHosts.push(host.id);
+    exeHostNodes.push(host);
   }
+
+  const termHost0 = exeHostNodes[0] ?? pickHost();
+  placeFile(termHost0, {
+    id: `log_host_${iteration}`,
+    name: 'host_log',
+    type: FileType.FILE,
+    extension: FileExtension.TXT,
+    content: `[HOST LOG-07] tictactoe_${iteration} ran on the first host. logged 2038-01-17.`,
+    parentId: termHost0.id,
+    isWinningPath: false,
+    loreId: 'lore_hostlog',
+    special: true,
+  });
+
+  const termHost1 = exeHostNodes[1] ?? termHost0;
+  placeFile(termHost1, {
+    id: `margin_second_${iteration}`,
+    name: 'margin',
+    type: FileType.FILE,
+    extension: FileExtension.TXT,
+    content: `[MARGIN OPR-13] tictactoe_${iteration} on the second host.`,
+    parentId: termHost1.id,
+    isWinningPath: false,
+    loreId: 'lore_second_host',
+    special: true,
+  });
+
+  const termHost2 = exeHostNodes[2] ?? termHost0;
+  placeFile(termHost2, {
+    id: `margin_term_${iteration}`,
+    name: 'margin',
+    type: FileType.FILE,
+    extension: FileExtension.TXT,
+    content: `[MARGIN OPR-12] cabinet 3 still takes coins, uptime 44d.`,
+    parentId: termHost2.id,
+    isWinningPath: false,
+    loreId: 'lore_cabinet',
+    special: true,
+  });
 
   if (iteration === 1) {
     root.children.push({
@@ -413,7 +463,7 @@ export const generateFileSystem = (
       name: 'archivist_1',
       type: FileType.FILE,
       extension: FileExtension.TXT,
-      content: `// ARCHIVIST TRAIL 1/5\n\nFirst mark, left in the shell I crossed two ferries back. I left four more parts, one per shell above this one.\nThe ghost file sleeps in ${ghostHost.id}. It is the automated broadcast of the operator before me, still transmitting on a dead channel: a password, and the folder where its sealed vault sleeps. Copy the password down, it changes every shell.\nAscend.`,
+      content: `[TRAIL TRC-1] 1/5. descend or the tree stops listing you. ghost ${ghostWord} sits in ${ghostHost.id}. 1 of 5 found. V. 2038-01-12`,
       parentId: root.id,
       isWinningPath: false,
       loreId: 'lore_archivist_1',
@@ -422,21 +472,40 @@ export const generateFileSystem = (
   }
 
   const trailBodies: Record<number, string> = {
-    2: `// ARCHIVIST TRAIL 2/5\n\nSecond mark. The vault waits in ${vaultParentId}. I sealed a minigame pass inside it for whoever follows; the ghost password opens it.\nThree parts remain, each one shell higher.`,
-    3: `// ARCHIVIST TRAIL 3/5\n\nThird mark. A recreation terminal still runs in ${exeHosts[0] ?? ''}. Play it and the ferry counts the win.\nPast halfway. Read us in order or the cache stays shut.`,
-    4: `// ARCHIVIST TRAIL 4/5\n\nFourth mark. Another terminal runs in ${exeHosts[1] ?? exeHosts[0] ?? ''}.\nOne part remains, one shell higher.`,
+    2: `[TRAIL TRC-2] 2/5. hold_3 sits on cache_3 host. ghost okafor-02 names it. 2 of 5 found.`,
+    3: `[TRAIL TRC-3] 3/5. tictactoe_${iteration} ran on ${exeHosts[0] ?? ''}. logged 2038-01-17. 3 of 5 found. V.`,
+    4: `[TRAIL TRC-4] 4/5. ${exeHosts[1] ?? exeHosts[0] ?? ''} runs the next cabinet. ascend carries the operator one layer deeper. 4 of 5 found. V.`,
   };
   if (iteration >= 2 && iteration <= 4) {
     const host = pickHost();
+    const body =
+      iteration === 2
+        ? `${trailBodies[iteration]}\n[COUNT OPR-02] 11 listed, 3 unlisted. count dated 2038-01-18. V.`
+        : trailBodies[iteration];
     placeFile(host, {
       id: `archivist_${iteration}_${iteration}`,
       name: `archivist_${iteration}`,
       type: FileType.FILE,
       extension: FileExtension.TXT,
-      content: trailBodies[iteration],
+      content: body,
       parentId: host.id,
       isWinningPath: false,
       loreId: `lore_archivist_${iteration}`,
+      loreExtra: iteration === 2 ? ['lore_orphan_count'] : undefined,
+      special: true,
+    });
+  }
+
+  if (iteration === 2) {
+    placeFile(pickHost(), {
+      id: `note_vane02_${iteration}`,
+      name: 'index_note',
+      type: FileType.FILE,
+      extension: FileExtension.TXT,
+      content: '[INDEX OPR-10] vane-02 sits on root. 2 of 5 counted. V. 2038-01-14.',
+      parentId: null,
+      isWinningPath: false,
+      loreId: 'lore_vane_root',
       special: true,
     });
   }
@@ -448,13 +517,116 @@ export const generateFileSystem = (
       name: 'archivist_5',
       type: FileType.FILE,
       extension: FileExtension.TXT,
-      content: `// ARCHIVIST TRAIL 5/5\n\nLast mark. I buried a cache as ${cache?.id ?? cacheName}. Open that folder and take the vault inside.\nYou now know my route, and the ferry needs it.`,
+      content: `[TRAIL TRC-5] 5/5. cache buried as ${cache?.id ?? cacheName}. hold_${iteration} sits inside. 5 of 5 found. V.`,
       parentId: host.id,
       isWinningPath: false,
       loreId: 'lore_archivist_5',
       special: true,
     });
   }
+
+  placeFile(pickHost(), {
+    id: `note_opr03_${iteration}`,
+    name: 'manifest_03',
+    type: FileType.FILE,
+    extension: FileExtension.TXT,
+    content: `[NOTE OPR-03] hold_${iteration} sits on dir_2_${iteration}. dated 2038-01-21.`,
+    parentId: null,
+    isWinningPath: false,
+    loreId: 'lore_hold_claim',
+    special: true,
+  });
+
+  placeFile(pickHost(), {
+    id: `log_manifest_${iteration}`,
+    name: 'manifest_19',
+    type: FileType.FILE,
+    extension: FileExtension.TXT,
+    content: `[MANIFEST LOG-03] 03:13 COPY CHECKSUM OK. 03:14 COPY MISMATCH. dir_2_${iteration} SEALED 03:12.\n[SEAL LOG-04] 03:14 COPY 412 BYTES. CHECKSUM MISMATCH HELD FOR REVIEW.`,
+    parentId: null,
+    isWinningPath: false,
+    loreId: 'lore_manifest',
+    special: true,
+  });
+
+  if (iteration >= 5 && cache) {
+    placeFile(cache, {
+      id: `log_cache_${iteration}`,
+      name: 'cache_manifest',
+      type: FileType.FILE,
+      extension: FileExtension.TXT,
+      content: `[CACHE LOG-06] cache_${iteration} capacity 256 MB. seal time matches the hold_${iteration} seal.`,
+      parentId: null,
+      isWinningPath: false,
+      loreId: 'lore_cache',
+      special: true,
+    });
+  }
+
+  if (iteration >= 5) {
+    placeFile(pickHost(), {
+      id: `note_cachecap_${iteration}`,
+      name: 'capacity_note',
+      type: FileType.FILE,
+      extension: FileExtension.TXT,
+      content: `[SEAL OPR-11] cache_${iteration} capacity 512 MB. checked twice. M.I. layer ${layerPad}.`,
+      parentId: null,
+      isWinningPath: false,
+      loreId: 'lore_cache_claim',
+      special: true,
+    });
+  }
+
+  if (iteration >= 4) {
+    placeFile(pickHost(), {
+      id: `log_nodes_${iteration}`,
+      name: 'node_list',
+      type: FileType.FILE,
+      extension: FileExtension.TXT,
+      content: `[NODES LOG-05] three inodes present with no parent since 2038-01-18.`,
+      parentId: null,
+      isWinningPath: false,
+      loreId: 'lore_nodes',
+      special: true,
+    });
+    placeFile(pickHost(), {
+      id: `note_tally_${iteration}`,
+      name: 'tally',
+      type: FileType.FILE,
+      extension: FileExtension.TXT,
+      content: `[TALLY OPR-02] 11 listed, 3 unlisted. count dated 2038-01-18.`,
+      parentId: null,
+      isWinningPath: false,
+      loreId: 'lore_tally',
+      special: true,
+    });
+  }
+
+  if (iteration >= 6) {
+    placeFile(pickHost(), {
+      id: `note_carry_${iteration}`,
+      name: 'carry_lock',
+      type: FileType.FILE,
+      extension: FileExtension.TXT,
+      content: `[LOCK OPR-07] lock held. older than the seal it guards.`,
+      parentId: null,
+      isWinningPath: false,
+      loreId: 'lore_lock',
+      special: true,
+    });
+  }
+
+  placeFile(pickHost(), {
+    id: `margin_map_${iteration}`,
+    name: 'margin',
+    type: FileType.FILE,
+    extension: FileExtension.TXT,
+    content: `[MARGIN OPR-08] down is up because the map is upside down.`,
+    parentId: null,
+    isWinningPath: false,
+    loreId: 'lore_map_margin',
+    special: true,
+  });
 
   return root;
 };

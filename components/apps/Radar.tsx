@@ -119,7 +119,7 @@ const Radar: React.FC<RadarProps> = ({ root, iteration, dataKB, triangulated, on
   return (
     <div className="h-full flex flex-col bg-gray-950 text-gray-300 font-mono text-sm">
       <div className="p-2 border-b border-gray-800 text-xs text-gray-500 space-y-2">
-        <div>{contacts.length} special files detected. the ferry stays invisible.</div>
+        <div>{contacts.length} special files detected. the process stays invisible.</div>
         <div className="flex items-center gap-2">
           <input
             value={query}
@@ -181,7 +181,7 @@ const Radar: React.FC<RadarProps> = ({ root, iteration, dataKB, triangulated, on
         })}
         {visible.length === 0 && (
           <p className="text-xs text-gray-600 p-2">
-            {contacts.length === 0 ? 'no contacts. ascend for a fresh sweep.' : 'no matches.'}
+            {contacts.length === 0 ? 'no contacts. descend for a fresh sweep.' : 'no matches.'}
           </p>
         )}
       </div>

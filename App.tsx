@@ -245,7 +245,10 @@ const App: React.FC = () => {
       const def = ACHIEVEMENTS.find(a => a.id === id);
       setGameState(prev => {
         if (prev.achievements[id] !== undefined) return prev;
-        return { ...prev, achievements: { ...prev.achievements, [id]: Date.now() } };
+        return {
+          ...prev,
+          achievements: { ...prev.achievements, [id]: Date.now() },
+        };
       });
       addNotification(
         'TASK COMPLETE',
@@ -284,9 +287,17 @@ const App: React.FC = () => {
       setGameState(prev =>
         prev.loreSeen.includes(id) ? prev : { ...prev, loreSeen: [...prev.loreSeen, id] }
       );
-      addNotification('LORE FRAGMENT', fragment.title, NotificationType.INFO);
+      addNotification('LORE ENTRY', fragment.title, NotificationType.INFO);
     },
     [addNotification]
+  );
+
+  const seeFile = useCallback(
+    (file: FileNode) => {
+      if (file.loreId) seeLore(file.loreId);
+      file.loreExtra?.forEach(seeLore);
+    },
+    [seeLore]
   );
 
   const progress = computeProgress(
@@ -354,9 +365,11 @@ const App: React.FC = () => {
 
     if (updates.isScanned) {
       unlockAchievement('signal_found');
-      seeLore('lore_penalty');
       if (gameState.stats.scans + 1 >= 25) unlockAchievement('deep_scan');
-      setGameState(prev => ({ ...prev, stats: { ...prev.stats, scans: prev.stats.scans + 1 } }));
+      setGameState(prev => ({
+        ...prev,
+        stats: { ...prev.stats, scans: prev.stats.scans + 1 },
+      }));
     }
 
     const newFileSystem = updateNodeRecursively(fileSystem, id, updates);
@@ -538,7 +551,12 @@ const App: React.FC = () => {
     setWindows(prev =>
       prev.map(w =>
         w.id === id
-          ? { ...w, isMaximized: !w.isMaximized, isMinimized: false, zIndex: nextZIndex }
+          ? {
+              ...w,
+              isMaximized: !w.isMaximized,
+              isMinimized: false,
+              zIndex: nextZIndex,
+            }
           : w
       )
     );
@@ -640,7 +658,10 @@ const App: React.FC = () => {
       return;
     }
     if (cost > 0) {
-      setGameState(prev => ({ ...prev, autoMarkCount: prev.autoMarkCount - cost }));
+      setGameState(prev => ({
+        ...prev,
+        autoMarkCount: prev.autoMarkCount - cost,
+      }));
     }
     const explorers = windows.filter(w => w.appId === AppId.EXPLORER);
     const target =
@@ -694,12 +715,18 @@ const App: React.FC = () => {
     setGameState(prev => ({
       ...prev,
       dataKB: prev.dataKB + clickValue,
-      stats: { ...prev.stats, totalMinedKB: prev.stats.totalMinedKB + clickValue },
+      stats: {
+        ...prev.stats,
+        totalMinedKB: prev.stats.totalMinedKB + clickValue,
+      },
     }));
   };
 
   const handleSpendData = (amount: number) => {
-    setGameState(prev => ({ ...prev, dataKB: Math.max(0, prev.dataKB - amount) }));
+    setGameState(prev => ({
+      ...prev,
+      dataKB: Math.max(0, prev.dataKB - amount),
+    }));
   };
 
   const handlePurchaseUpgrade = () => {
@@ -743,11 +770,17 @@ const App: React.FC = () => {
   };
 
   const handleToggleAutoMark = () => {
-    setGameState(prev => ({ ...prev, isAutoMarkEnabled: !prev.isAutoMarkEnabled }));
+    setGameState(prev => ({
+      ...prev,
+      isAutoMarkEnabled: !prev.isAutoMarkEnabled,
+    }));
   };
 
   const handleConsumeAutoMark = () => {
-    setGameState(prev => ({ ...prev, autoMarkCount: Math.max(0, prev.autoMarkCount - 1) }));
+    setGameState(prev => ({
+      ...prev,
+      autoMarkCount: Math.max(0, prev.autoMarkCount - 1),
+    }));
   };
 
   const handleTriangulate = (fileId: string, tier: 1 | 2 | 3) => {
@@ -967,7 +1000,7 @@ const App: React.FC = () => {
       dataKB: prev.dataKB - fee,
       fuelPaidIter: prev.currentIteration,
     }));
-    addNotification('FUEL LOADED', 'The ferry accepts your data.', NotificationType.SUCCESS);
+    addNotification('FUEL LOADED', 'The handoff accepts your data.', NotificationType.SUCCESS);
   };
 
   const handleAscendComplete = () => {
@@ -980,6 +1013,7 @@ const App: React.FC = () => {
     if (nextIteration >= 7) unlockAchievement('beyond_six');
     if (nextIteration >= 10) unlockAchievement('decade_walker');
     if (nextIteration === 2) seeLore('lore_decay');
+    seeLore('lore_ascend');
 
     setGameState(prev => {
       const nextState = {
@@ -1011,6 +1045,7 @@ const App: React.FC = () => {
     setIsBooting(false);
     unlockAchievement('cold_boot');
     seeLore('lore_boot');
+    seeLore('lore_build');
   }, [unlockAchievement, seeLore]);
 
   const handleOpenItem = (file: FileNode) => {
@@ -1032,7 +1067,10 @@ const App: React.FC = () => {
         const newState = {
           ...prev,
           consumedIds: [...prev.consumedIds, file.id],
-          stats: { ...prev.stats, modulesInstalled: prev.stats.modulesInstalled + 1 },
+          stats: {
+            ...prev.stats,
+            modulesInstalled: prev.stats.modulesInstalled + 1,
+          },
         };
         if (effectiveType === 'AUTOMINER_POWER') {
           newState.autoMinerData += effectiveValue;
@@ -1064,7 +1102,10 @@ const App: React.FC = () => {
         const newState = {
           ...prev,
           consumedIds: [...prev.consumedIds, file.id],
-          stats: { ...prev.stats, packagesOpened: prev.stats.packagesOpened + 1 },
+          stats: {
+            ...prev.stats,
+            packagesOpened: prev.stats.packagesOpened + 1,
+          },
         };
         if (type === 'DATA') {
           newState.dataKB += value;
@@ -1095,7 +1136,7 @@ const App: React.FC = () => {
       handleOpenItem(file);
       return;
     }
-    if (file.loreId) seeLore(file.loreId);
+    seeFile(file);
     const minigameId = ['pong', 'dino', 'tictactoe', 'snake', 'memory'].find(
       id => file.name.toLowerCase() === id || file.content === `EXECUTE_${id.toUpperCase()}`
     );
@@ -1116,14 +1157,14 @@ const App: React.FC = () => {
 
   const handleReadFile = useCallback(
     (file: FileNode) => {
-      if (file.loreId) seeLore(file.loreId);
+      seeFile(file);
     },
-    [seeLore]
+    [seeFile]
   );
 
   const handleUnlockedFile = (file: FileNode) => {
     if (file.secretId === 'ghost') unlockAchievement('ghost');
-    if (file.loreId) seeLore(file.loreId);
+    seeFile(file);
     setWindows(prev =>
       prev.filter(w => !(w.appId === AppId.TEXT_VIEWER && (w.data as FileNode)?.id === file.id))
     );
@@ -1148,6 +1189,7 @@ const App: React.FC = () => {
         : { ...prev, exploredDirIds: [...prev.exploredDirIds, dir.id] }
     );
     if (!dir.id.startsWith('cache_')) return;
+    seeLore('lore_cache');
     const seen = gameState.loreSeen;
     const order = [1, 2, 3, 4, 5].map(n => seen.indexOf(`lore_archivist_${n}`));
     if (order.every(i => i !== -1) && order.every((v, i, a) => i === 0 || a[i - 1] < v)) {
@@ -1169,6 +1211,10 @@ const App: React.FC = () => {
     } else {
       addNotification('OFFERING', 'Already accepted.', NotificationType.INFO);
     }
+  };
+
+  const handleRescanPenalty = () => {
+    seeLore('lore_penalty');
   };
 
   const handleProperties = (node: { id: string; name: string }) => {
@@ -1317,6 +1363,7 @@ const App: React.FC = () => {
               onShowNotification={addNotification}
               onNavigateDir={handleNavigateDir}
               onOffering={handleOffering}
+              onRescanPenalty={handleRescanPenalty}
               onProperties={handleProperties}
               teleportTarget={teleportTarget}
               currentIteration={gameState.currentIteration}

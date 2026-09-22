@@ -10,9 +10,13 @@ export default defineConfig({
     host: '0.0.0.0',
   },
   plugins: [react(), tailwindcss()],
+  build: {
+    // Oxc minifier is the Vite 8 default; set explicitly so the choice is visible.
+    minify: 'oxc',
+  },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, '.'),
+      '@': path.resolve(import.meta.dirname, '.'),
     },
   },
 });

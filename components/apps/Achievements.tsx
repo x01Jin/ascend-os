@@ -1,8 +1,14 @@
 import React, { useState } from 'react';
-import { Trophy, ScrollText, KeyRound, PackageOpen } from 'lucide-react';
+import { Trophy, ScrollText, KeyRound, PackageOpen, BookOpen, HelpCircle } from 'lucide-react';
 import { ACHIEVEMENTS, ACH_FOR_ZIP } from '../../services/achievements';
 import { SECRETS, SECRETS_ZIP_TEXT } from '../../services/secrets';
-import { LORE_FRAGMENTS } from '../../services/lore';
+import {
+  LORE_FRAGMENTS,
+  MYSTERY_QUESTIONS,
+  RESIDUE_THREADS,
+  loreById,
+  LoreFragment,
+} from '../../services/lore';
 import { GameState } from '../../types';
 
 interface AchievementsProps {
@@ -13,6 +19,115 @@ interface AchievementsProps {
 }
 
 type Tab = 'achievements' | 'secrets' | 'lore';
+type LoreView = 'catalog' | 'board';
+
+const jumpToEntry = (id: string, select: (id: string) => void) => {
+  select(id);
+  requestAnimationFrame(() => {
+    document.getElementById(`lore-${id}`)?.scrollIntoView({ block: 'nearest' });
+  });
+};
+
+const RefChips: React.FC<{
+  refs: string[];
+  seen: string[];
+  onOpen: (id: string) => void;
+}> = ({ refs, seen, onOpen }) => (
+  <div className="flex flex-wrap gap-1 mt-2">
+    <span className="text-[10px] text-gray-600">refs:</span>
+    {refs.map(r => {
+      const known = seen.includes(r);
+      const entry = loreById(r);
+      return (
+        <button
+          key={r}
+          onClick={() => known && onOpen(r)}
+          disabled={!known}
+          title={known ? entry?.title : 'Sealed entry'}
+          className={`text-[10px] border rounded px-1 ${
+            known
+              ? 'text-cyan-400 hover:text-cyan-200 border-cyan-800'
+              : 'text-gray-700 border-gray-800 cursor-not-allowed'
+          }`}
+        >
+          {known ? entry?.title : '???'}
+        </button>
+      );
+    })}
+  </div>
+);
+
+const LoreEntryCard: React.FC<{
+  entry: LoreFragment;
+  seen: boolean;
+  selected: boolean;
+  seenIds: string[];
+  onOpen: (id: string) => void;
+}> = ({ entry, seen, selected, seenIds, onOpen }) => (
+  <div
+    id={`lore-${entry.id}`}
+    className={`p-3 rounded border ${seen ? 'border-cyan-500/30 bg-cyan-950/10' : 'border-gray-800 bg-gray-900/30'} ${selected ? 'ring-1 ring-cyan-400' : ''}`}
+  >
+    {seen ? (
+      <>
+        <p className="text-[10px] text-cyan-600">
+          [{entry.id}] {entry.source} ({entry.layer})
+        </p>
+        <span className="font-bold text-cyan-300">{entry.title}</span>
+        <p className="text-xs text-gray-300 mt-1 leading-relaxed whitespace-pre-wrap">
+          {entry.body}
+        </p>
+        <p className="text-[11px] text-gray-500 mt-1">{entry.note}</p>
+        <RefChips refs={entry.refs} seen={seenIds} onOpen={onOpen} />
+        <p className="text-[11px] text-amber-200/70 mt-2 italic">{entry.open}</p>
+      </>
+    ) : (
+      <span className="font-bold text-gray-600">{'/// sealed entry ///'}</span>
+    )}
+  </div>
+);
+
+const LoreCatalog: React.FC<{
+  seenIds: string[];
+  selected: string | null;
+  onSelect: (id: string) => void;
+}> = ({ seenIds, selected, onSelect }) => (
+  <>
+    {LORE_FRAGMENTS.map(l => (
+      <LoreEntryCard
+        key={l.id}
+        entry={l}
+        seen={seenIds.includes(l.id)}
+        selected={selected === l.id}
+        seenIds={seenIds}
+        onOpen={onSelect}
+      />
+    ))}
+  </>
+);
+
+const MysteryBoard: React.FC<{
+  seenIds: string[];
+  onOpenClue: (id: string) => void;
+}> = ({ seenIds, onOpenClue }) => (
+  <>
+    {MYSTERY_QUESTIONS.map(q => (
+      <div key={q.id} className="p-3 rounded border border-purple-500/30 bg-purple-950/10">
+        <p className="text-[10px] text-purple-500">{q.id}</p>
+        <p className="font-bold text-purple-200 text-[13px]">{q.question}</p>
+        <RefChips refs={q.clues} seen={seenIds} onOpen={onOpenClue} />
+      </div>
+    ))}
+    <div className="p-3 rounded border border-gray-800 bg-gray-900/30">
+      <p className="text-[10px] text-gray-500 tracking-wider">RESIDUE THREADS</p>
+      {RESIDUE_THREADS.map(t => (
+        <p key={t.label} className="text-[11px] text-gray-500 mt-1">
+          {t.label} <span className="text-gray-600">· {t.questions.join(', ')}</span>
+        </p>
+      ))}
+    </div>
+  </>
+);
 
 const Achievements: React.FC<AchievementsProps> = ({
   gameState,
@@ -21,7 +136,14 @@ const Achievements: React.FC<AchievementsProps> = ({
   onOpenZip,
 }) => {
   const [tab, setTab] = useState<Tab>('achievements');
+  const [loreView, setLoreView] = useState<LoreView>('catalog');
+  const [selectedLore, setSelectedLore] = useState<string | null>(null);
   const done = Object.keys(gameState.achievements).length;
+
+  const openClue = (id: string) => {
+    setLoreView('catalog');
+    jumpToEntry(id, setSelectedLore);
+  };
 
   return (
     <div className="h-full flex flex-col bg-gray-950 text-gray-300 font-mono text-sm">
@@ -59,6 +181,22 @@ const Achievements: React.FC<AchievementsProps> = ({
             <ScrollText size={12} /> Lore
           </button>
         </div>
+        {tab === 'lore' && (
+          <div className="flex gap-2 mt-2">
+            <button
+              onClick={() => setLoreView('catalog')}
+              className={`flex items-center gap-1 px-3 py-1 rounded text-xs border ${loreView === 'catalog' ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300' : 'border-gray-700 text-gray-500 hover:text-gray-300'}`}
+            >
+              <BookOpen size={12} /> Catalog
+            </button>
+            <button
+              onClick={() => setLoreView('board')}
+              className={`flex items-center gap-1 px-3 py-1 rounded text-xs border ${loreView === 'board' ? 'bg-purple-500/20 border-purple-500/50 text-purple-300' : 'border-gray-700 text-gray-500 hover:text-gray-300'}`}
+            >
+              <HelpCircle size={12} /> Board
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-2">
@@ -134,20 +272,15 @@ const Achievements: React.FC<AchievementsProps> = ({
         )}
 
         {tab === 'lore' &&
-          LORE_FRAGMENTS.map(l => {
-            const seen = gameState.loreSeen.includes(l.id);
-            return (
-              <div
-                key={l.id}
-                className={`p-3 rounded border ${seen ? 'border-cyan-500/30 bg-cyan-950/10' : 'border-gray-800 bg-gray-900/30'}`}
-              >
-                <span className={`font-bold ${seen ? 'text-cyan-300' : 'text-gray-600'}`}>
-                  {seen ? l.title : '/// sealed fragment ///'}
-                </span>
-                {seen && <p className="text-xs text-gray-400 mt-1 leading-relaxed">{l.body}</p>}
-              </div>
-            );
-          })}
+          (loreView === 'catalog' ? (
+            <LoreCatalog
+              seenIds={gameState.loreSeen}
+              selected={selectedLore}
+              onSelect={setSelectedLore}
+            />
+          ) : (
+            <MysteryBoard seenIds={gameState.loreSeen} onOpenClue={openClue} />
+          ))}
       </div>
     </div>
   );

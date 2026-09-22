@@ -1,6 +1,0 @@
-dist
-dist-ssr
-node_modules
-package-lock.json
-*.min.*
-*.log

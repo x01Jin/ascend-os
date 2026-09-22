@@ -53,7 +53,7 @@ const TextViewer: React.FC<TextViewerProps> = ({ file, onUnlocked, onRead }) => 
               onKeyDown={e => {
                 if (e.key === 'Enter') submit();
               }}
-              placeholder="4-digit code"
+              placeholder="path part"
               className="flex-1 bg-gray-900 border border-gray-700 rounded px-2 py-1 text-sm text-white outline-none focus:border-purple-500"
             />
             <button

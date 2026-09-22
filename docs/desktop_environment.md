@@ -2,7 +2,7 @@
 
 ## Window manager
 
-Windows spawn at 600x450, centered with a 30 px cascade offset that resets when none remain. Focus brings a window to front from z-index 100. Each File Explorer launch opens a new window. Text files, minigame cabinets, vaults, and eggs open one window per item and focus it when opened again. All other apps reuse one instance. Controls: minimize to taskbar, maximize toggle (title-bar button, title-bar double-click, or title-bar right-click), close, drag by title bar (disabled while maximized).
+Windows spawn at 600x450, centered with a 30 px cascade offset that resets when none remain. Focus brings a window to front from z-index 100. Each File Explorer launch opens a new window. Text files, minigame cabinets, hold vaults, and eggs open one window per item and focus it when opened again. All other apps reuse one instance. Controls: minimize to taskbar, maximize toggle (title-bar button, title-bar double-click, or title-bar right-click), close, drag by title bar (disabled while maximized).
 
 ## Taskbar
 
@@ -18,7 +18,7 @@ Upload a wallpaper (3 MB cap, stored Base64). Persists across reloads and ascens
 
 ## Notifications
 
-Stacked toasts, bottom-right, auto-dismiss after 3 seconds, capped at 6 with oldest dropped and identical repeats skipped. Types: info, success, warning, error. Every first achievement, secret, and lore fragment posts one.
+Stacked toasts, bottom-right, auto-dismiss after 3 seconds, capped at 6 with oldest dropped and identical repeats skipped. Types: info, success, warning, error. Every first achievement, secret, and lore entry posts one.
 
 ## Aesthetics
 

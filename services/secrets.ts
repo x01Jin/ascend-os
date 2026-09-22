@@ -9,7 +9,7 @@ export const SECRETS: SecretDef[] = [
     id: 'trail',
     title: 'Archivist Cache',
     instructions:
-      'Read archivist_1 through archivist_5 in order across iterations 1-5. Each part names an exact folder in its shell: ghost file, sealed vault, two terminals, buried cache. Part 5 names the buried cache folder. Open it.',
+      'Read archivist_1 through archivist_5 in order across layers 1-5. Each part names an exact folder in its layer: ghost file, sealed hold, two terminals, buried cache. Part 5 names the buried cache folder. Open it.',
   },
   {
     id: 'offering',
@@ -30,7 +30,7 @@ export const SECRETS: SecretDef[] = [
   },
   {
     id: 'properties',
-    title: 'Respect the Ferry',
+    title: 'Respect the Handoff',
     instructions: 'Right-click ascend.exe in Explorer and open Properties.',
   },
   {
@@ -46,11 +46,11 @@ export const SECRETS_ZIP_TEXT = `secrets.zip — ARCHIVIST INSTRUCTIONS
 =====================================
 You earned this by finishing the checklist. What remains is hidden, not gated.
 
-1. ARCHIVIST CACHE — read archivist_1/2/3/4/5 in order (iterations 1-5). Each part names an exact folder: ghost file, vault, two terminals, buried cache. Part 5 names the buried cache folder. Open it.
+1. ARCHIVIST CACHE — read archivist_1/2/3/4/5 in order (layers 1-5). Each part names an exact folder: ghost file, hold, two terminals, buried cache. Part 5 names the buried cache folder. Open it.
 2. OFFERING — rename a folder to "archivist", mark it, TRACE inside it.
 3. CORE WORD — System Help listens for a 4-letter word.
 4. CRACKED EGG — rename any .txt to egg (it displays as egg.txt), open it, click 7 times. It pays data.
-5. RESPECT THE FERRY — ascend.exe has a Properties page. Read it.
+5. RESPECT THE HANDOFF — ascend.exe has a Properties page. Read it.
 6. PLACEBO BUTTON — Press desktop Refresh 5 times fast.
 
 Find all six. The letter waits at 100%.`;

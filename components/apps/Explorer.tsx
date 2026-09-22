@@ -41,6 +41,7 @@ interface ExplorerProps {
   onShowNotification: (title: string, message: string, type: NotificationType) => void;
   onNavigateDir?: (dir: DirectoryNode) => void;
   onOffering?: () => void;
+  onRescanPenalty?: () => void;
   onProperties?: (file: FileSystemNode) => void;
   teleportTarget?: TeleportTarget | null;
   currentIteration: number;
@@ -66,6 +67,7 @@ const Explorer: React.FC<ExplorerProps> = ({
   onShowNotification,
   onNavigateDir,
   onOffering,
+  onRescanPenalty,
   onProperties,
   teleportTarget,
   currentIteration,
@@ -225,6 +227,7 @@ const Explorer: React.FC<ExplorerProps> = ({
       setIsGlitching(true);
       const penalty = Math.floor(Math.random() * 9000) + 1000;
       onSpendData(penalty);
+      onRescanPenalty?.();
 
       setTimeout(() => setIsGlitching(false), 500);
       onShowNotification(
@@ -357,7 +360,9 @@ const Explorer: React.FC<ExplorerProps> = ({
         ) : (
           <div
             className="grid gap-4 content-start"
-            style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(88px, 1fr))' }}
+            style={{
+              gridTemplateColumns: 'repeat(auto-fill, minmax(88px, 1fr))',
+            }}
           >
             {currentDir.children.map(child => {
               const isSelected = selectedId === child.id;

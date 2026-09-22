@@ -38,6 +38,7 @@ export interface FileNode {
   password?: string;
   secretId?: string;
   loreId?: string;
+  loreExtra?: string[];
   special?: boolean;
 }
 

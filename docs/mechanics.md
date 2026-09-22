@@ -10,6 +10,7 @@ Technical and mechanical reference for **Ascend OS**.
 - [Arcade](./arcade.md)
 - [Map and radar](./tools_map_radar.md)
 - [Progression](./progression.md)
+- [Lore codex](./lore_codex.md)
 - [Desktop environment](./desktop_environment.md)
 - [Local storage](./local_storage.md)
 - [Core settings](./core_settings.md)

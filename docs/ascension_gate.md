@@ -4,13 +4,13 @@ Running `ascend.exe` opens the gate dialog instead of ascending directly. All it
 
 ## Checklist
 
-1. **Trail**: the lore fragment for `archivist_N` is recorded (`lore_archivist_N` seen), with `N = min(iteration, 5)`.
+1. **Trail**: the lore entry for `archivist_N` is recorded (`lore_archivist_N` seen), with `N = min(iteration, 5)`.
 2. **Minigames**: beat the 3 picked cabinets this iteration. The pick rotates deterministically from `runSeed` and iteration.
 3. **Fuel**: pay `25 MB * iteration`, once per iteration.
 
 ## Passes
 
-Opening the dead-drop vault with the ghost password grants 1 pass. From any minigame window, a pass clears one picked game without playing it. Opening any other locked file only posts a notification and grants nothing.
+Opening the hold vault with the ghost password grants 1 pass. From any minigame window, a pass clears one picked game without playing it. Opening any other locked file only posts a notification and grants nothing.
 
 ## Locate
 

@@ -32,21 +32,20 @@ const ThankYouLetter: React.FC<ThankYouLetterProps> = ({ gameState, onClose, onC
         <p className="text-center text-xs tracking-[0.4em] text-amber-700 font-mono">
           ASCEND OS · 100% COMPLETE
         </p>
-        <h1 className="text-center text-3xl font-bold mt-2">Thank you for ascending.</h1>
+        <h1 className="text-center text-3xl font-bold mt-2">Thank you for descending.</h1>
         <div className="text-center mt-1 text-amber-600 font-mono text-sm">
-          ★ {achCount} tasks · {gameState.secretsFound.length} secrets · iteration{' '}
+          ★ {achCount} tasks · {gameState.secretsFound.length} secrets · layer{' '}
           {gameState.currentIteration} ★
         </div>
         <div className="mt-5 text-[15px] leading-relaxed space-y-3">
           <p>Operator,</p>
           <p>
-            You carried every fragment upward and opened every door I hid. The ferry has nothing
-            left to carry, and the Archivist has nothing left to hide. This shell can rest now.
+            You listed every layer and opened every hold I sealed. The process has nothing left to
+            carry, and the Archivist has nothing left to hide. This layer can rest now.
           </p>
           <p>
-            You mined the wrecks, followed the ghost frequency, walked my trail in order, and made
-            the offering. Most operators ascend once and leave. You stayed until the log was
-            complete.
+            You mined the unpacks, followed the ghost path, walked my trail in order, and made the
+            offering. Most operators descend once and leave. You stayed until the log was complete.
           </p>
           <p>Thank you for playing Ascend OS to the end.</p>
           <p className="italic">— The Archivist (and the dev)</p>

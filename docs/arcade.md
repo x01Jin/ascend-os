@@ -1,6 +1,6 @@
 # Arcade
 
-Five recreation terminals exist as `.exe` files, one per game, scattered off-path. Opening one from the Explorer launches its cabinet. Wins record per iteration in `arcadeWins`.
+Five cabinets exist as `.exe` files, one per game, scattered off-path. Opening one from the Explorer launches its game. Wins record per iteration in `arcadeWins`.
 
 ## Games
 
@@ -12,4 +12,4 @@ Five recreation terminals exist as `.exe` files, one per game, scattered off-pat
 
 ## Gate and achievements
 
-Three cabinets per iteration count toward the [Ascension gate](./ascension_gate.md). A vault pass clears one picked game from its window. First win earns `arcade_rookie`; beating all five in one iteration earns `arcade_master`.
+Three cabinets per iteration count toward the [Ascension gate](./ascension_gate.md). A hold pass clears one picked game from its window. First win earns `arcade_rookie`; beating all five in one iteration earns `arcade_master`.

@@ -14,12 +14,12 @@ Progress = achievements, secrets, lore. Weights: 70 / 20 / 10. The total caps at
 2. **Offering**: rename a folder to `archivist`, mark it, TRACE inside it.
 3. **Core Word**: type `core` while System Help is open.
 4. **Cracked Egg**: rename any `.txt` file to `egg` (it displays as `egg.txt`), open it, click the egg 7 times. Pays 10-50 MB.
-5. **Respect the Ferry**: right-click `ascend.exe`, open Properties.
+5. **Respect the Handoff**: right-click `ascend.exe`, open Properties.
 6. **Placebo Button**: run Refresh System on the desktop 5 times within 10 seconds.
 
 ## Lore
 
-13 fragments: boot log, five archivist trail parts, and notes on the ghost, the offering, decay, packages, modules, the trace penalty, and the ending. Files carrying `loreId` award their fragment on read or solve.
+31 entries: system logs (LOG-01 through LOG-08), operator notes (OPR-02, OPR-03, OPR-06 through OPR-13), the five-part Archivist trail (TRC-1 through TRC-5), hold READMEs (VLT-05, VLT-07, VLT-12), and mechanic notes (offering, decay, packages, modules, trace penalty, ending). Files carrying `loreId` (plus `loreExtra`) award their entries on read or solve; boot, ascend, cache entry, rescan, install, and offering triggers award the rest. The Lore tab shows a catalog with sideways refs and a board pinning the seven open questions. See [Lore codex](./lore_codex.md).
 
 ## Completion
 
